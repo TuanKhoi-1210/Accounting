@@ -1,4 +1,5 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using Accounting.Domain.Entities;
+using Microsoft.EntityFrameworkCore;
 
 namespace Accounting.Infrastructure
 {
@@ -9,7 +10,11 @@ namespace Accounting.Infrastructure
     {
         public const string Schema = "acc";
 
+        // Cho phép khởi tạo bằng DI/options
         public AccountingDbContext(DbContextOptions<AccountingDbContext> options) : base(options) { }
+
+        // Cho phép khởi tạo mặc định (Form1 tạo thẳng new AccountingDbContext())
+        public AccountingDbContext() { }
 
         // ===== DbSet Danh mục =====
         public DbSet<KhachHang> KhachHang => Set<KhachHang>();
@@ -19,18 +24,38 @@ namespace Accounting.Infrastructure
         public DbSet<Kho> Kho => Set<Kho>();
         public DbSet<TaiKhoanNganHang> TaiKhoanNganHang => Set<TaiKhoanNganHang>();
         public DbSet<ThueSuat> ThueSuat => Set<ThueSuat>();
+
+        // ===== Nghiệp vụ Mua hàng =====
         public DbSet<DonMua> DonMua => Set<DonMua>();
         public DbSet<DonMuaDong> DonMuaDong => Set<DonMuaDong>();
         public DbSet<PhieuNhap> PhieuNhap => Set<PhieuNhap>();
         public DbSet<PhieuNhapDong> PhieuNhapDong => Set<PhieuNhapDong>();
         public DbSet<HoaDonMua> HoaDonMua => Set<HoaDonMua>();
         public DbSet<HoaDonMuaDong> HoaDonMuaDong => Set<HoaDonMuaDong>();
+
+        /// <summary>
+        /// Kết nối mặc định tới SQL Server nếu chưa được cấu hình từ bên ngoài.
+        /// Thay Server=... đúng tên instance SQL của bạn (xem trong SSMS).
+        /// </summary>
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+        {
+            if (!optionsBuilder.IsConfigured)
+            {
+                // Ví dụ LocalDB:
+                // optionsBuilder.UseSqlServer("Server=(localdb)\\MSSQLLocalDB;Database=AccountingDB;Trusted_Connection=True;TrustServerCertificate=True;");
+
+                // Ví dụ SQL Express / SQL Server cài máy bạn:
+                optionsBuilder.UseSqlServer(
+                    "Server=DESKTOP-Khoi\\SQLEXPRESS;Database=AccountingDB;Trusted_Connection=True;TrustServerCertificate=True;");
+            }
+        }
+
         protected override void OnModelCreating(ModelBuilder b)
         {
             b.HasDefaultSchema(Schema);
 
             // =========================
-            // KHÁCH HÀNG (GIỮ NGUYÊN)
+            // KHÁCH HÀNG
             // =========================
             b.Entity<KhachHang>(e =>
             {
@@ -167,6 +192,7 @@ namespace Accounting.Infrastructure
                 e.Property(x => x.TyLe).HasColumnName("ty_le").HasPrecision(9, 4).IsRequired();
                 e.Property(x => x.DangHoatDong).HasColumnName("dang_hoat_dong").HasDefaultValue(true);
             });
+
             // ===== ĐƠN MUA =====
             b.Entity<DonMua>(e =>
             {
@@ -185,6 +211,7 @@ namespace Accounting.Infrastructure
                 e.Property(x => x.CoHopDongLon).HasColumnName("co_hop_dong_lon").HasDefaultValue(false);
                 e.Property(x => x.GhiChu).HasColumnName("ghi_chu");
                 e.Property(x => x.TrangThai).HasColumnName("trang_thai").HasMaxLength(20).HasDefaultValue("nhap");
+
                 e.Property(x => x.TienHang).HasColumnName("tien_hang").HasPrecision(18, 2);
                 e.Property(x => x.TienThue).HasColumnName("tien_thue").HasPrecision(18, 2);
                 e.Property(x => x.TongTien).HasColumnName("tong_tien").HasPrecision(18, 2);
@@ -197,7 +224,10 @@ namespace Accounting.Infrastructure
                 e.HasKey(x => x.Id);
 
                 e.Property(x => x.DonMuaId).HasColumnName("don_mua_id");
-                e.HasOne<DonMua>().WithMany().HasForeignKey(x => x.DonMuaId).OnDelete(DeleteBehavior.Cascade);
+                e.HasOne<DonMua>()
+                    .WithMany(d => d.Dong)              // ✅ trỏ đúng collection navigation
+                    .HasForeignKey(x => x.DonMuaId)
+                    .OnDelete(DeleteBehavior.Cascade);
 
                 e.Property(x => x.VatTuId).HasColumnName("vat_tu_id");
                 e.HasOne<VatTu>().WithMany().HasForeignKey(x => x.VatTuId);
@@ -234,6 +264,7 @@ namespace Accounting.Infrastructure
                 e.HasOne<Kho>().WithMany().HasForeignKey(x => x.KhoId);
 
                 e.Property(x => x.NgayNhap).HasColumnName("ngay_nhap");
+
                 e.Property(x => x.DonMuaId).HasColumnName("don_mua_id");
                 e.HasOne<DonMua>().WithMany().HasForeignKey(x => x.DonMuaId);
 
@@ -249,7 +280,10 @@ namespace Accounting.Infrastructure
                 e.HasKey(x => x.Id);
 
                 e.Property(x => x.PhieuNhapId).HasColumnName("phieu_nhap_id");
-                e.HasOne<PhieuNhap>().WithMany().HasForeignKey(x => x.PhieuNhapId).OnDelete(DeleteBehavior.Cascade);
+                e.HasOne<PhieuNhap>()
+                    .WithMany(p => p.Dong)              // ✅ trỏ đúng collection navigation
+                    .HasForeignKey(x => x.PhieuNhapId)
+                    .OnDelete(DeleteBehavior.Cascade);
 
                 e.Property(x => x.VatTuId).HasColumnName("vat_tu_id");
                 e.HasOne<VatTu>().WithMany().HasForeignKey(x => x.VatTuId);
@@ -293,7 +327,10 @@ namespace Accounting.Infrastructure
                 e.HasKey(x => x.Id);
 
                 e.Property(x => x.HoaDonMuaId).HasColumnName("hoa_don_mua_id");
-                e.HasOne<HoaDonMua>().WithMany().HasForeignKey(x => x.HoaDonMuaId).OnDelete(DeleteBehavior.Cascade);
+                e.HasOne<HoaDonMua>()
+                    .WithMany(h => h.Dong)              // ✅ trỏ đúng collection navigation
+                    .HasForeignKey(x => x.HoaDonMuaId)
+                    .OnDelete(DeleteBehavior.Cascade);
 
                 e.Property(x => x.VatTuId).HasColumnName("vat_tu_id");
                 e.HasOne<VatTu>().WithMany().HasForeignKey(x => x.VatTuId);
@@ -307,7 +344,6 @@ namespace Accounting.Infrastructure
                 e.Property(x => x.TienThue).HasColumnName("tien_thue").HasPrecision(18, 2);
                 e.Property(x => x.ThanhTien).HasColumnName("thanh_tien").HasPrecision(18, 2);
             });
-
         }
     }
 }

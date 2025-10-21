@@ -42,84 +42,395 @@
 
         function renderDashboard() {
             app.innerHTML = `
-                              <section class="grid kpi-grid">
-                                <div class="card kpi"><div class="kpi-label">Doanh thu tháng</div><div class="kpi-value">₫ 0</div></div>
-                                <div class="card kpi"><div class="kpi-label">Chi phí tháng</div><div class="kpi-value">₫ 0</div></div>
-                                <div class="card kpi"><div class="kpi-label">Lợi nhuận gộp</div><div class="kpi-value">₫ 0</div></div>
-                                <div class="card kpi"><div class="kpi-label">Công nợ phải thu</div><div class="kpi-value">₫ 0</div></div>
-                                <div class="card kpi"><div class="kpi-label">Công nợ phải trả</div><div class="kpi-value">₫ 0</div></div>
-                                <div class="card kpi"><div class="kpi-label">Giá trị tồn kho</div><div class="kpi-value">₫ 0</div></div>
-                              </section>
+                                      <section class="grid kpi-grid">
+                                        <div class="card kpi"><div class="kpi-label">Doanh thu tháng</div><div class="kpi-value">₫ 0</div></div>
+                                        <div class="card kpi"><div class="kpi-label">Chi phí tháng</div><div class="kpi-value">₫ 0</div></div>
+                                        <div class="card kpi"><div class="kpi-label">Lợi nhuận gộp</div><div class="kpi-value">₫ 0</div></div>
+                                        <div class="card kpi"><div class="kpi-label">Công nợ phải thu</div><div class="kpi-value">₫ 0</div></div>
+                                        <div class="card kpi"><div class="kpi-label">Công nợ phải trả</div><div class="kpi-value">₫ 0</div></div>
+                                        <div class="card kpi"><div class="kpi-label">Giá trị tồn kho</div><div class="kpi-value">₫ 0</div></div>
+                                      </section>
 
-                              <section class="grid two-col">
-                                <div class="card">
-                                  <header class="card-title">📅 Nhắc việc & Cảnh báo</header>
-                                  <ul class="alerts">
-                                    <li>🧾 Tờ khai thuế GTGT kỳ này: <b>chưa nộp</b></li>
-                                    <li>💳 Hóa đơn bán đến hạn thanh toán: <b>0</b> chứng từ</li>
-                                    <li>📦 Mặt hàng tồn kho thấp: <b>0</b> mặt hàng</li>
-                                  </ul>
-                                </div>
+                                      <section class="grid two-col">
+                                        <div class="card">
+                                          <header class="card-title">📅 Nhắc việc & Cảnh báo</header>
+                                          <ul class="alerts">
+                                            <li>🧾 Tờ khai thuế GTGT kỳ này: <b>chưa nộp</b></li>
+                                            <li>💳 Hóa đơn bán đến hạn thanh toán: <b>0</b> chứng từ</li>
+                                            <li>📦 Mặt hàng tồn kho thấp: <b>0</b> mặt hàng</li>
+                                          </ul>
+                                        </div>
 
-                                <div class="card">
-                                  <header class="card-title">📦 Tồn kho thấp</header>
-                                  <div class="table-wrap">
-                                    <table class="table">
-                                      <thead><tr><th>Mã hàng</th><th>Tên hàng</th><th>Tồn</th><th>Ngưỡng</th></tr></thead>
-                                      <tbody>
-                                        <tr><td colspan="4" class="empty">Chưa có dữ liệu</td></tr>
-                                      </tbody>
-                                    </table>
-                                  </div>
-                                </div>
+                                        <div class="card">
+                                          <header class="card-title">📦 Tồn kho thấp</header>
+                                          <div class="table-wrap">
+                                            <table class="table">
+                                              <thead><tr><th>Mã hàng</th><th>Tên hàng</th><th>Tồn</th><th>Ngưỡng</th></tr></thead>
+                                              <tbody>
+                                                <tr><td colspan="4" class="empty">Chưa có dữ liệu</td></tr>
+                                              </tbody>
+                                            </table>
+                                          </div>
+                                        </div>
 
-                                <div class="card">
-                                  <header class="card-title">💰 Công nợ đến hạn (Phải thu)</header>
-                                  <div class="table-wrap">
-                                    <table class="table">
-                                      <thead><tr><th>Khách hàng</th><th>Số tiền</th><th>Hạn TT</th><th>Trạng thái</th></tr></thead>
-                                      <tbody>
-                                        <tr><td colspan="4" class="empty">Chưa có dữ liệu</td></tr>
-                                      </tbody>
-                                    </table>
-                                  </div>
-                                </div>
+                                        <div class="card">
+                                          <header class="card-title">💰 Công nợ đến hạn (Phải thu)</header>
+                                          <div class="table-wrap">
+                                            <table class="table">
+                                              <thead><tr><th>Khách hàng</th><th>Số tiền</th><th>Hạn TT</th><th>Trạng thái</th></tr></thead>
+                                              <tbody>
+                                                <tr><td colspan="4" class="empty">Chưa có dữ liệu</td></tr>
+                                              </tbody>
+                                            </table>
+                                          </div>
+                                        </div>
 
-                                <div class="card">
-                                  <header class="card-title">🏦 Đối chiếu ngân hàng</header>
-                                  <div class="table-wrap">
-                                    <table class="table">
-                                      <thead><tr><th>Tài khoản</th><th>Số dư sổ</th><th>Số dư NH</th><th>Chênh lệch</th></tr></thead>
-                                      <tbody>
-                                        <tr><td colspan="4" class="empty">Chưa có dữ liệu</td></tr>
-                                      </tbody>
-                                    </table>
-                                  </div>
-                                </div>
-                              </section>
-                            `;
+                                        <div class="card">
+                                          <header class="card-title">🏦 Đối chiếu ngân hàng</header>
+                                          <div class="table-wrap">
+                                            <table class="table">
+                                              <thead><tr><th>Tài khoản</th><th>Số dư sổ</th><th>Số dư NH</th><th>Chênh lệch</th></tr></thead>
+                                              <tbody>
+                                                <tr><td colspan="4" class="empty">Chưa có dữ liệu</td></tr>
+                                              </tbody>
+                                            </table>
+                                          </div>
+                                        </div>
+                                      </section>
+                                    `;
         }
         /* ====== MUA HÀNG: DANH SÁCH ====== */
         function renderPurchaseList() {
             app.innerHTML = `
+            <div class="page-header">
+              <div>
+                <h2>🛒 Mua hàng</h2>
+                <p class="muted">Quản lý đơn mua, hợp đồng & nhập hàng</p>
+              </div>
+              <div class="actions">
+                <button class="btn primary" id="btnCreatePO">+ Tạo đơn mua</button>
+              </div>
+            </div>
+
+            <div class="toolbar">
+              <input class="input" placeholder="Tìm theo mã đơn / nhà cung cấp..." />
+              <select class="input">
+                <option>Tất cả trạng thái</option>
+                <option>nhap</option>
+                <option>hoan_thanh</option>
+              </select>
+              <div class="spacer"></div>
+              <button class="btn" id="btnReload">Tải lại</button>
+            </div>
+
+            <div class="card">
+              <div class="table-wrap">
+                <table class="table">
+                  <thead>
+                    <tr>
+                      <th>Mã đơn</th><th>Nhà cung cấp (ID)</th><th>Ngày</th>
+                      <th>Giá trị</th><th>Trạng thái</th><th></th>
+                    </tr>
+                  </thead>
+                  <tbody id="poBody">
+                    <tr><td colspan="6" class="empty">Đang tải…</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          `;
+
+            document.getElementById("btnCreatePO").addEventListener("click", renderPurchaseCreate);
+            document.getElementById("btnReload").addEventListener("click", loadPOs);
+
+            loadPOs();
+
+            async function loadPOs() {
+                const body = document.getElementById('poBody');
+                body.innerHTML = `<tr><td colspan="6" class="empty">Đang tải…</td></tr>`;
+                const rows = await api("listDonMua"); // gọi C#
+                if (!rows || rows.length === 0) {
+                    body.innerHTML = `<tr><td colspan="6" class="empty">Chưa có đơn mua</td></tr>`;
+                    return;
+                }
+                body.innerHTML = rows.map(r => `
+              <tr>
+                <td>${r.SoCt}</td>
+                <td>${r.NhaCungCapId ?? ''}</td>
+                <td>${fmtDate(r.ngayDon)}</td>
+                <td>${fmtMoney(r.tongTien || 0)}</td>
+                <td><span class="badge">${r.trangThai || ''}</span></td>
+                <td><button class="btn link" data-id="${r.id}">Xem</button></td>
+              </tr>
+            `).join('');
+            }
+        }
+
+        /* ====== MUA HÀNG: TẠO ĐƠN ====== */
+        // ===== Helpers: gửi/nhận message với .NET một lần (1 request - 1 response) =====
+        function sendToDotnet(payload) {
+            window.chrome?.webview?.postMessage(payload);
+        }
+
+        function apiOnce(cmd, data, timeoutMs = 8000) {
+            return new Promise((resolve, reject) => {
+                // Lắng nghe duy nhất lần đầu server trả lời (one-shot)
+                const handler = (e) => {
+                    let resp = e.data;
+                    try { resp = typeof resp === 'string' ? JSON.parse(resp) : resp; } catch { }
+                    window.chrome?.webview?.removeEventListener('message', handler);
+                    if (resp && resp.error) return reject(resp.error);
+                    resolve(resp);
+                };
+                window.chrome?.webview?.addEventListener('message', handler);
+
+                // Timeout để tránh treo
+                const t = setTimeout(() => {
+                    try { window.chrome?.webview?.removeEventListener('message', handler); } catch { }
+                    reject("Hết thời gian chờ phản hồi backend (timeout).");
+                }, timeoutMs);
+
+                // Gửi cmd
+                try {
+                    sendToDotnet({ cmd, ...data });
+                } catch (err) {
+                    clearTimeout(t);
+                    try { window.chrome?.webview?.removeEventListener('message', handler); } catch { }
+                    reject("Không gửi được lệnh lên backend: " + err);
+                }
+            });
+        }
+
+        /* ====== MUA HÀNG: TẠO ĐƠN ====== */
+        function renderPurchaseCreate() {
+            app.innerHTML = `
+      <div class="page-header">
+        <div>
+          <h2>➕ Tạo đơn mua hàng</h2>
+          <p class="muted">Nhập thông tin nhà cung cấp và dòng vật tư</p>
+        </div>
+        <div class="actions">
+          <button class="btn" id="btnBackToList">← Danh sách</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <form class="form">
+          <div class="grid form-grid">
+              <label class="field">
+                <span>Số chứng từ</span>
+                <input id="soCt" class="input" placeholder="vd: PO-20251014-001" />
+              </label>
+            <label class="field">
+              <span>Nhà cung cấp (ID)</span>
+              <input id="nccId" class="input" type="number" placeholder="vd: 1" />
+            </label>
+            <label class="field">
+              <span>Ngày đơn</span>
+              <input id="ngayDon" class="input" type="date" />
+            </label>
+            <label class="field">
+              <span>Tỷ giá</span>
+              <input id="tyGia" class="input" type="number" step="0.0001" placeholder="1.0000" />
+            </label>
+            <label class="field">
+              <span>Hợp đồng (> 20 triệu)</span>
+              <select id="hopDong" class="input">
+                <option value="false">Không</option>
+                <option value="true">Có</option>
+              </select>
+            </label>
+            <label class="field">
+              <span>Ghi chú</span>
+              <input id="ghiChu" class="input" placeholder="Ghi chú nội bộ (tùy chọn)" />
+            </label>
+          </div>
+
+          <div class="subsection">
+            <div class="subheader">
+              <h3>Dòng hàng / vật tư</h3>
+              <button type="button" class="btn" id="btnAddLine">+ Thêm dòng</button>
+            </div>
+
+            <div class="table-wrap">
+              <table class="table compact" id="poLines">
+                <thead>
+                  <tr>
+                    <th>VatTuId</th><th>Quy cách</th><th>Loại giấy</th>
+                    <th>GSM</th><th>Màu in</th><th>Gia công</th>
+                    <th>SL</th><th>Đơn giá</th><th>Thuế (%)</th><th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr class="hint"><td colspan="10">Nhấn “+ Thêm dòng” để thêm vật tư</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="form-actions">
+            <button type="button" class="btn" id="btnSave">Lưu nháp (tạo đơn)</button>
+            <button type="button" class="btn" disabled>Trình duyệt</button>
+            <button type="button" class="btn primary" disabled>Ghi sổ</button>
+          </div>
+        </form>
+      </div>
+    `;
+
+            document.getElementById("btnBackToList").addEventListener("click", renderPurchaseList);
+
+            // Thêm dòng
+            document.getElementById("btnAddLine").addEventListener("click", () => {
+                const tbody = document.querySelector("#poLines tbody");
+                const tr = document.createElement("tr");
+                tr.innerHTML = `
+    <td><input class="input cell vtId" type="number" value="1" /></td>
+    <td><input class="input cell qc"  placeholder="60x90 cm" /></td>
+    <td><input class="input cell lg"  placeholder="Duplex" /></td>
+    <td><input class="input cell gsm" placeholder="300" /></td>
+    <td><input class="input cell mi"  placeholder="4C" /></td>
+    <td><input class="input cell gc"  placeholder="Cán-Bế" /></td>
+    <td><input class="input cell sl"  type="number" value="100" /></td>
+    <td><input class="input cell dg"  type="number" value="12000" /></td>
+    <td>
+      <select class="input cell vat">
+        <option value="1">0%</option>
+        <option value="2" selected>8%</option>
+        <option value="3">10%</option>
+      </select>
+    </td>
+    <td><button type="button" class="btn link del">Xóa</button></td>
+  `;
+                tbody.querySelector(".hint")?.remove();
+                tbody.appendChild(tr);
+                tr.querySelector(".del").addEventListener("click", () => tr.remove());
+            });
+
+
+            // Lưu nháp = gọi CreateDonMua
+            // ====== Lưu nháp (tạo đơn) ======
+            document.getElementById("btnSave").addEventListener("click", async () => {
+                try {
+                    // helpers parse an toàn
+                    const toInt = (v) => {
+                        const n = Number(v);
+                        return Number.isInteger(n) ? n : NaN;
+                    };
+                    const toNum = (v) => {
+                        const n = Number(v);
+                        return Number.isFinite(n) ? n : NaN;
+                    };
+                    // sinh mã chứng từ nếu trống: PO-YYMMDD-xyz
+                    const genSoCt = () => {
+                        const d = new Date();
+                        const y = String(d.getFullYear()).slice(-2);
+                        const m = String(d.getMonth() + 1).padStart(2, "0");
+                        const day = String(d.getDate()).padStart(2, "0");
+                        const r = Math.floor(100 + Math.random() * 900); // 100..999
+                        return `PO-${y}${m}${day}-${r}`;
+                    };
+
+                    // soCt: lấy từ input nếu có, nếu trống thì tự sinh
+                    const soCtInput = document.getElementById("soCt"); // có thể không tồn tại
+                    let soCt = soCtInput?.value?.trim();
+                    if (!soCt) {
+                        soCt = genSoCt();
+                        if (soCtInput) soCtInput.value = soCt; // hiển thị lại cho user
+                    }
+
+                    // validate NCC
+                    const nccId = toInt(document.getElementById("nccId").value || "0");
+                    if (!Number.isInteger(nccId) || nccId <= 0) {
+                        alert("Vui lòng nhập Nhà cung cấp ID hợp lệ (ví dụ: 1).");
+                        return;
+                    }
+
+                    // gom dòng vật tư
+                    const rows = [...document.querySelectorAll("#poLines tbody tr")]
+                        .filter(tr => !tr.classList.contains("hint"));
+                    if (rows.length === 0) {
+                        alert("Chưa có dòng vật tư.");
+                        return;
+                    }
+
+                    const lines = [];
+                    for (const tr of rows) {
+                        const vatTuId = toInt(tr.querySelector(".vtId")?.value ?? "");
+                        const thueSuatId = toInt(tr.querySelector(".vat")?.value ?? "");
+                        const soLuong = toNum(tr.querySelector(".sl")?.value ?? "");
+                        const donGia = toNum(tr.querySelector(".dg")?.value ?? "");
+
+                        if (!Number.isInteger(vatTuId) || vatTuId <= 0) { alert("VatTuId không hợp lệ."); return; }
+                        if (!Number.isInteger(thueSuatId) || thueSuatId <= 0) { alert("Thuế suất không hợp lệ."); return; }
+                        if (!Number.isFinite(soLuong) || soLuong <= 0) { alert("Số lượng phải > 0."); return; }
+                        if (!Number.isFinite(donGia) || donGia < 0) { alert("Đơn giá phải ≥ 0."); return; }
+
+                        lines.push({
+                            vatTuId,
+                            kichThuoc: tr.querySelector(".qc")?.value || null,
+                            loaiGiay: tr.querySelector(".lg")?.value || null,
+                            dinhLuongGsm: tr.querySelector(".gsm")?.value || null,
+                            mauIn: tr.querySelector(".mi")?.value || null,
+                            giaCong: tr.querySelector(".gc")?.value || null,
+                            soLuong,
+                            donGia,
+                            thueSuatId
+                        });
+                    }
+
+                    // header đơn mua
+                    const donmua = {
+                        soCt, // QUAN TRỌNG
+                        nhaCungCapId: nccId,
+                        ngayDon: (document.getElementById("ngayDon").value || new Date().toISOString().substring(0, 10)),
+                        tienTe: "VND",
+                        tyGia: Number(document.getElementById("tyGia").value || "1"),
+                        coHopDongLon: document.getElementById("hopDong").value === "true",
+                        ghiChu: document.getElementById("ghiChu").value || null
+                    };
+
+                    // gọi backend
+                    const res = await api("createDonMua", { donmua, lines });
+
+                    if (res?.id) {
+                        alert("Đã tạo đơn: " + res.soCt);
+                        renderPurchaseList();
+                    } else if (res?.error) {
+                        alert("Lỗi backend:\n" + res.error);
+                        console.error(res);
+                    } else {
+                        alert("Không tạo được đơn. Vui lòng kiểm tra dữ liệu/seed.");
+                        console.log(res);
+                    }
+                } catch (err) {
+                    alert("Lỗi JS: " + (err?.message || err));
+                    console.error(err);
+                }
+            });
+
+        }
+
+        function renderSalesList() {
+            app.innerHTML = `
                           <div class="page-header">
                             <div>
-                              <h2>🛒 Mua hàng</h2>
-                              <p class="muted">Quản lý đơn mua, hợp đồng & nhập hàng</p>
+                              <h2>💼 Bán hàng</h2>
+                              <p class="muted">Báo giá → Đơn hàng → Hợp đồng bán → Hóa đơn → Thu tiền</p>
                             </div>
                             <div class="actions">
-                              <button class="btn primary" id="btnCreatePO">+ Tạo đơn mua</button>
+                              <button class="btn primary" id="btnCreateSO">+ Lập đơn bán</button>
                             </div>
                           </div>
 
                           <div class="toolbar">
-                            <input class="input" placeholder="Tìm theo mã đơn / nhà cung cấp..." />
+                            <input class="input" placeholder="Tìm theo mã / khách hàng / hợp đồng..." />
                             <select class="input">
                               <option>Tất cả trạng thái</option>
-                              <option>Nháp</option>
-                              <option>Đã duyệt</option>
-                              <option>Đã nhập hàng</option>
+                              <option>Báo giá</option>
+                              <option>Đơn hàng</option>
+                              <option>Đã giao</option>
                               <option>Đã hóa đơn</option>
+                              <option>Đã thu tiền</option>
                             </select>
                             <select class="input">
                               <option>Tháng này</option>
@@ -137,27 +448,26 @@
                               <table class="table">
                                 <thead>
                                   <tr>
-                                    <th>Mã đơn</th><th>Nhà cung cấp</th><th>Ngày</th>
+                                    <th>Mã chứng từ</th><th>Khách hàng</th><th>Ngày</th>
                                     <th>Giá trị</th><th>Trạng thái</th><th>Hợp đồng</th><th></th>
                                   </tr>
                                 </thead>
                                 <tbody>
-                                  <!-- Dữ liệu mẫu tĩnh -->
                                   <tr>
-                                    <td>PO-0001</td>
-                                    <td>Cty Giấy Hòa Việt</td>
-                                    <td>05/10/2025</td>
-                                    <td>₫ 350,000,000</td>
-                                    <td><span class="badge warn">Chờ duyệt</span></td>
+                                    <td>SO-1001</td>
+                                    <td>Cty Bao Bì Minh Quân</td>
+                                    <td>06/10/2025</td>
+                                    <td>₫ 420,000,000</td>
+                                    <td><span class="badge warn">Đơn hàng</span></td>
                                     <td><span class="badge">> 20 triệu</span></td>
                                     <td><button class="btn link">Xem</button></td>
                                   </tr>
                                   <tr>
-                                    <td>PO-0002</td>
-                                    <td>Cty Mực In Á Châu</td>
-                                    <td>10/10/2025</td>
-                                    <td>₫ 8,500,000</td>
-                                    <td><span class="badge ok">Đã nhập</span></td>
+                                    <td>SO-1002</td>
+                                    <td>Vinprint JSC</td>
+                                    <td>12/10/2025</td>
+                                    <td>₫ 18,700,000</td>
+                                    <td><span class="badge ok">Đã giao</span></td>
                                     <td><span class="badge muted">≤ 20 triệu</span></td>
                                     <td><button class="btn link">Xem</button></td>
                                   </tr>
@@ -170,19 +480,19 @@
                           </div>
                         `;
 
-            document.getElementById("btnCreatePO").addEventListener("click", renderPurchaseCreate);
+            document.getElementById("btnCreateSO").addEventListener("click", renderSalesCreate);
         }
 
-        /* ====== MUA HÀNG: TẠO ĐƠN ====== */
-        function renderPurchaseCreate() {
+        /* ====== BÁN HÀNG: LẬP ĐƠN ====== */
+        function renderSalesCreate() {
             app.innerHTML = `
                           <div class="page-header">
                             <div>
-                              <h2>➕ Tạo đơn mua hàng</h2>
-                              <p class="muted">Nhập thông tin nhà cung cấp và dòng vật tư</p>
+                              <h2>➕ Lập đơn bán hàng</h2>
+                              <p class="muted">Từ báo giá đến hóa đơn và thu tiền (UI mẫu, chưa tính tự động)</p>
                             </div>
                             <div class="actions">
-                              <button class="btn" id="btnBackToList">← Danh sách</button>
+                              <button class="btn" id="btnBackSales">← Danh sách</button>
                             </div>
                           </div>
 
@@ -190,19 +500,23 @@
                             <form class="form">
                               <div class="grid form-grid">
                                 <label class="field">
-                                  <span>Nhà cung cấp</span>
-                                  <input class="input" placeholder="Nhập tên / mã NCC" />
+                                  <span>Khách hàng</span>
+                                  <input class="input" placeholder="Nhập tên / mã KH" />
                                 </label>
                                 <label class="field">
-                                  <span>Ngày đơn</span>
+                                  <span>Ngày chứng từ</span>
                                   <input class="input" type="date" />
                                 </label>
                                 <label class="field">
-                                  <span>Tỷ giá (nếu ngoại tệ)</span>
-                                  <input class="input" type="number" step="0.0001" placeholder="1.0000" />
+                                  <span>Loại chứng từ</span>
+                                  <select class="input">
+                                    <option>Báo giá</option>
+                                    <option selected>Đơn hàng</option>
+                                    <option>Hóa đơn</option>
+                                  </select>
                                 </label>
                                 <label class="field">
-                                  <span>Hợp đồng (> 20 triệu)</span>
+                                  <span>Hợp đồng bán (> 20 triệu)</span>
                                   <select class="input">
                                     <option>Không</option>
                                     <option>Có</option>
@@ -216,21 +530,21 @@
 
                               <div class="subsection">
                                 <div class="subheader">
-                                  <h3>Dòng hàng / vật tư</h3>
-                                  <button type="button" class="btn" id="btnAddLine">+ Thêm dòng</button>
+                                  <h3>Dòng hàng (thành phẩm in bao bì)</h3>
+                                  <button type="button" class="btn" id="btnAddSOLine">+ Thêm dòng</button>
                                 </div>
 
                                 <div class="table-wrap">
-                                  <table class="table compact" id="poLines">
+                                  <table class="table compact" id="soLines">
                                     <thead>
                                       <tr>
-                                        <th>Mã VT</th><th>Tên VT</th><th>Quy cách</th><th>Loại giấy</th>
-                                        <th>Định lượng (gsm)</th><th>Màu in</th><th>Gia công</th>
-                                        <th>SL</th><th>Đơn giá</th><th>Thuế VAT</th><th>T.Tiền</th><th></th>
+                                        <th>Mã SP</th><th>Tên SP</th><th>Kích thước</th>
+                                        <th>Loại giấy</th><th>Màu in</th><th>Gia công</th>
+                                        <th>SL</th><th>Đơn giá</th><th>VAT</th><th>T.Tiền</th><th></th>
                                       </tr>
                                     </thead>
                                     <tbody>
-                                      <tr class="hint"><td colspan="12">Nhấn “+ Thêm dòng” để thêm vật tư (UI tĩnh)</td></tr>
+                                      <tr class="hint"><td colspan="11">Nhấn “+ Thêm dòng” để thêm sản phẩm (UI tĩnh)</td></tr>
                                     </tbody>
                                   </table>
                                 </div>
@@ -252,30 +566,30 @@
                               </div>
 
                               <div class="form-actions">
-                                <button type="button" class="btn">Lưu nháp</button>
-                                <button type="button" class="btn">Trình duyệt</button>
+                                <button type="button" class="btn">Lưu báo giá</button>
+                                <button type="button" class="btn">Xác nhận đơn hàng</button>
+                                <button type="button" class="btn">Xuất hóa đơn</button>
                                 <button type="button" class="btn primary" disabled>Ghi sổ</button>
                               </div>
                             </form>
                           </div>
                         `;
 
-            document.getElementById("btnBackToList").addEventListener("click", renderPurchaseList);
+            document.getElementById("btnBackSales").addEventListener("click", renderSalesList);
 
-            // UI tĩnh: chỉ thêm 1 dòng mẫu cho đẹp (không tính toán)
-            const tbody = document.querySelector("#poLines tbody");
-            document.getElementById("btnAddLine").addEventListener("click", () => {
+            // Thêm dòng mẫu (UI tĩnh)
+            const tbody = document.querySelector("#soLines tbody");
+            document.getElementById("btnAddSOLine").addEventListener("click", () => {
                 const tr = document.createElement("tr");
                 tr.innerHTML = `
-                            <td><input class="input cell" placeholder="MVT001" /></td>
-                            <td><input class="input cell" placeholder="Giấy Duplex" /></td>
-                            <td><input class="input cell" placeholder="60x90 cm" /></td>
-                            <td><input class="input cell" placeholder="Duplex/IVORY/BR" /></td>
-                            <td><input class="input cell" type="number" placeholder="300" /></td>
+                            <td><input class="input cell" placeholder="SP001" /></td>
+                            <td><input class="input cell" placeholder="Hộp giấy Duplex" /></td>
+                            <td><input class="input cell" placeholder="20 x 30 x 10 cm" /></td>
+                            <td><input class="input cell" placeholder="Duplex 300gsm" /></td>
                             <td><input class="input cell" placeholder="4C" /></td>
-                            <td><input class="input cell" placeholder="Cán-Bế" /></td>
-                            <td><input class="input cell" type="number" placeholder="1000" /></td>
-                            <td><input class="input cell" type="number" placeholder="12000" /></td>
+                            <td><input class="input cell" placeholder="Cán-Bế-Dán" /></td>
+                            <td><input class="input cell" type="number" placeholder="5000" /></td>
+                            <td><input class="input cell" type="number" placeholder="15000" /></td>
                             <td>
                               <select class="input cell">
                                 <option>0%</option><option selected>8%</option><option>10%</option>
@@ -289,27 +603,28 @@
             });
         }
 
-        function renderSalesList() {
+        function renderInventoryList() {
             app.innerHTML = `
                       <div class="page-header">
                         <div>
-                          <h2>💼 Bán hàng</h2>
-                          <p class="muted">Báo giá → Đơn hàng → Hợp đồng bán → Hóa đơn → Thu tiền</p>
+                          <h2>📦 Kho</h2>
+                          <p class="muted">Theo dõi Nhập – Xuất – Tồn, lệnh sản xuất, cảnh báo tồn thấp</p>
                         </div>
                         <div class="actions">
-                          <button class="btn primary" id="btnCreateSO">+ Lập đơn bán</button>
+                          <div class="btn-group">
+                            <button class="btn" data-doc="receipt">+ Phiếu nhập</button>
+                            <button class="btn" data-doc="issue">- Phiếu xuất</button>
+                            <button class="btn" data-doc="mo">⚙️ Lệnh sản xuất</button>
+                          </div>
                         </div>
                       </div>
 
                       <div class="toolbar">
-                        <input class="input" placeholder="Tìm theo mã / khách hàng / hợp đồng..." />
+                        <input class="input" placeholder="Tìm theo mã chứng từ / mã hàng..." />
                         <select class="input">
-                          <option>Tất cả trạng thái</option>
-                          <option>Báo giá</option>
-                          <option>Đơn hàng</option>
-                          <option>Đã giao</option>
-                          <option>Đã hóa đơn</option>
-                          <option>Đã thu tiền</option>
+                          <option>Tất cả kho</option>
+                          <option>Kho vật tư</option>
+                          <option>Kho thành phẩm</option>
                         </select>
                         <select class="input">
                           <option>Tháng này</option>
@@ -322,258 +637,64 @@
                         <button class="btn">In</button>
                       </div>
 
-                      <div class="card">
-                        <div class="table-wrap">
-                          <table class="table">
-                            <thead>
-                              <tr>
-                                <th>Mã chứng từ</th><th>Khách hàng</th><th>Ngày</th>
-                                <th>Giá trị</th><th>Trạng thái</th><th>Hợp đồng</th><th></th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              <tr>
-                                <td>SO-1001</td>
-                                <td>Cty Bao Bì Minh Quân</td>
-                                <td>06/10/2025</td>
-                                <td>₫ 420,000,000</td>
-                                <td><span class="badge warn">Đơn hàng</span></td>
-                                <td><span class="badge">> 20 triệu</span></td>
-                                <td><button class="btn link">Xem</button></td>
-                              </tr>
-                              <tr>
-                                <td>SO-1002</td>
-                                <td>Vinprint JSC</td>
-                                <td>12/10/2025</td>
-                                <td>₫ 18,700,000</td>
-                                <td><span class="badge ok">Đã giao</span></td>
-                                <td><span class="badge muted">≤ 20 triệu</span></td>
-                                <td><button class="btn link">Xem</button></td>
-                              </tr>
-                              <tr>
-                                <td colspan="7" class="empty">…</td>
-                              </tr>
-                            </tbody>
-                          </table>
+                      <div class="grid two-col">
+                        <div class="card">
+                          <header class="card-title">📥 Phiếu nhập gần đây</header>
+                          <div class="table-wrap">
+                            <table class="table">
+                              <thead><tr><th>Mã PN</th><th>Kho</th><th>Ngày</th><th>Giá trị</th><th></th></tr></thead>
+                              <tbody>
+                                <tr><td>PN-0005</td><td>Kho vật tư</td><td>12/10/2025</td><td>₫ 95,000,000</td><td><button class="btn link">Xem</button></td></tr>
+                                <tr><td>PN-0004</td><td>Kho thành phẩm</td><td>10/10/2025</td><td>₫ 18,200,000</td><td><button class="btn link">Xem</button></td></tr>
+                                <tr><td colspan="5" class="empty">…</td></tr>
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+
+                        <div class="card">
+                          <header class="card-title">📤 Phiếu xuất gần đây</header>
+                          <div class="table-wrap">
+                            <table class="table">
+                              <thead><tr><th>Mã PX</th><th>Kho</th><th>Ngày</th><th>Giá trị</th><th></th></tr></thead>
+                              <tbody>
+                                <tr><td>PX-0102</td><td>Kho thành phẩm</td><td>13/10/2025</td><td>₫ 42,700,000</td><td><button class="btn link">Xem</button></td></tr>
+                                <tr><td>PX-0101</td><td>Kho vật tư</td><td>09/10/2025</td><td>₫ 12,300,000</td><td><button class="btn link">Xem</button></td></tr>
+                                <tr><td colspan="5" class="empty">…</td></tr>
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+
+                        <div class="card">
+                          <header class="card-title">🔔 Tồn kho thấp</header>
+                          <div class="table-wrap">
+                            <table class="table">
+                              <thead><tr><th>Mã hàng</th><th>Tên hàng</th><th>Tồn</th><th>Ngưỡng</th></tr></thead>
+                              <tbody>
+                                <tr><td>VT-GD300</td><td>Giấy Duplex 300gsm</td><td>120</td><td>300</td></tr>
+                                <tr><td>INK-CMYK</td><td>Mực 4C</td><td>8</td><td>20</td></tr>
+                                <tr><td colspan="4" class="empty">…</td></tr>
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+
+                        <div class="card">
+                          <header class="card-title">📊 Thẻ kho (mẫu)</header>
+                          <div class="table-wrap">
+                            <table class="table">
+                              <thead><tr><th>Ngày</th><th>Loại</th><th>Phiếu</th><th>Nhập</th><th>Xuất</th><th>Tồn</th></tr></thead>
+                              <tbody>
+                                <tr><td>10/10</td><td>PN</td><td>PN-0004</td><td>+2,000</td><td></td><td>5,500</td></tr>
+                                <tr><td>12/10</td><td>PX</td><td>PX-0102</td><td></td><td>-700</td><td>4,800</td></tr>
+                                <tr><td colspan="6" class="empty">…</td></tr>
+                              </tbody>
+                            </table>
+                          </div>
                         </div>
                       </div>
                     `;
-
-            document.getElementById("btnCreateSO").addEventListener("click", renderSalesCreate);
-        }
-
-        /* ====== BÁN HÀNG: LẬP ĐƠN ====== */
-        function renderSalesCreate() {
-            app.innerHTML = `
-                      <div class="page-header">
-                        <div>
-                          <h2>➕ Lập đơn bán hàng</h2>
-                          <p class="muted">Từ báo giá đến hóa đơn và thu tiền (UI mẫu, chưa tính tự động)</p>
-                        </div>
-                        <div class="actions">
-                          <button class="btn" id="btnBackSales">← Danh sách</button>
-                        </div>
-                      </div>
-
-                      <div class="card">
-                        <form class="form">
-                          <div class="grid form-grid">
-                            <label class="field">
-                              <span>Khách hàng</span>
-                              <input class="input" placeholder="Nhập tên / mã KH" />
-                            </label>
-                            <label class="field">
-                              <span>Ngày chứng từ</span>
-                              <input class="input" type="date" />
-                            </label>
-                            <label class="field">
-                              <span>Loại chứng từ</span>
-                              <select class="input">
-                                <option>Báo giá</option>
-                                <option selected>Đơn hàng</option>
-                                <option>Hóa đơn</option>
-                              </select>
-                            </label>
-                            <label class="field">
-                              <span>Hợp đồng bán (> 20 triệu)</span>
-                              <select class="input">
-                                <option>Không</option>
-                                <option>Có</option>
-                              </select>
-                            </label>
-                            <label class="field">
-                              <span>Ghi chú</span>
-                              <input class="input" placeholder="Ghi chú nội bộ (tùy chọn)" />
-                            </label>
-                          </div>
-
-                          <div class="subsection">
-                            <div class="subheader">
-                              <h3>Dòng hàng (thành phẩm in bao bì)</h3>
-                              <button type="button" class="btn" id="btnAddSOLine">+ Thêm dòng</button>
-                            </div>
-
-                            <div class="table-wrap">
-                              <table class="table compact" id="soLines">
-                                <thead>
-                                  <tr>
-                                    <th>Mã SP</th><th>Tên SP</th><th>Kích thước</th>
-                                    <th>Loại giấy</th><th>Màu in</th><th>Gia công</th>
-                                    <th>SL</th><th>Đơn giá</th><th>VAT</th><th>T.Tiền</th><th></th>
-                                  </tr>
-                                </thead>
-                                <tbody>
-                                  <tr class="hint"><td colspan="11">Nhấn “+ Thêm dòng” để thêm sản phẩm (UI tĩnh)</td></tr>
-                                </tbody>
-                              </table>
-                            </div>
-                          </div>
-
-                          <div class="grid form-grid totals">
-                            <label class="field">
-                              <span>Tổng tiền hàng</span>
-                              <input class="input" value="₫ 0" disabled />
-                            </label>
-                            <label class="field">
-                              <span>Thuế VAT</span>
-                              <input class="input" value="₫ 0" disabled />
-                            </label>
-                            <label class="field">
-                              <span>Tổng thanh toán</span>
-                              <input class="input strong" value="₫ 0" disabled />
-                            </label>
-                          </div>
-
-                          <div class="form-actions">
-                            <button type="button" class="btn">Lưu báo giá</button>
-                            <button type="button" class="btn">Xác nhận đơn hàng</button>
-                            <button type="button" class="btn">Xuất hóa đơn</button>
-                            <button type="button" class="btn primary" disabled>Ghi sổ</button>
-                          </div>
-                        </form>
-                      </div>
-                    `;
-
-            document.getElementById("btnBackSales").addEventListener("click", renderSalesList);
-
-            // Thêm dòng mẫu (UI tĩnh)
-            const tbody = document.querySelector("#soLines tbody");
-            document.getElementById("btnAddSOLine").addEventListener("click", () => {
-                const tr = document.createElement("tr");
-                tr.innerHTML = `
-                        <td><input class="input cell" placeholder="SP001" /></td>
-                        <td><input class="input cell" placeholder="Hộp giấy Duplex" /></td>
-                        <td><input class="input cell" placeholder="20 x 30 x 10 cm" /></td>
-                        <td><input class="input cell" placeholder="Duplex 300gsm" /></td>
-                        <td><input class="input cell" placeholder="4C" /></td>
-                        <td><input class="input cell" placeholder="Cán-Bế-Dán" /></td>
-                        <td><input class="input cell" type="number" placeholder="5000" /></td>
-                        <td><input class="input cell" type="number" placeholder="15000" /></td>
-                        <td>
-                          <select class="input cell">
-                            <option>0%</option><option selected>8%</option><option>10%</option>
-                          </select>
-                        </td>
-                        <td class="right">₫ 0</td>
-                        <td><button type="button" class="btn link">Xóa</button></td>
-                      `;
-                tbody.querySelector(".hint")?.remove();
-                tbody.appendChild(tr);
-            });
-        }
-
-        function renderInventoryList() {
-            app.innerHTML = `
-                  <div class="page-header">
-                    <div>
-                      <h2>📦 Kho</h2>
-                      <p class="muted">Theo dõi Nhập – Xuất – Tồn, lệnh sản xuất, cảnh báo tồn thấp</p>
-                    </div>
-                    <div class="actions">
-                      <div class="btn-group">
-                        <button class="btn" data-doc="receipt">+ Phiếu nhập</button>
-                        <button class="btn" data-doc="issue">- Phiếu xuất</button>
-                        <button class="btn" data-doc="mo">⚙️ Lệnh sản xuất</button>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div class="toolbar">
-                    <input class="input" placeholder="Tìm theo mã chứng từ / mã hàng..." />
-                    <select class="input">
-                      <option>Tất cả kho</option>
-                      <option>Kho vật tư</option>
-                      <option>Kho thành phẩm</option>
-                    </select>
-                    <select class="input">
-                      <option>Tháng này</option>
-                      <option>Quý này</option>
-                      <option>Năm nay</option>
-                      <option>Tùy chọn…</option>
-                    </select>
-                    <div class="spacer"></div>
-                    <button class="btn">Xuất Excel</button>
-                    <button class="btn">In</button>
-                  </div>
-
-                  <div class="grid two-col">
-                    <div class="card">
-                      <header class="card-title">📥 Phiếu nhập gần đây</header>
-                      <div class="table-wrap">
-                        <table class="table">
-                          <thead><tr><th>Mã PN</th><th>Kho</th><th>Ngày</th><th>Giá trị</th><th></th></tr></thead>
-                          <tbody>
-                            <tr><td>PN-0005</td><td>Kho vật tư</td><td>12/10/2025</td><td>₫ 95,000,000</td><td><button class="btn link">Xem</button></td></tr>
-                            <tr><td>PN-0004</td><td>Kho thành phẩm</td><td>10/10/2025</td><td>₫ 18,200,000</td><td><button class="btn link">Xem</button></td></tr>
-                            <tr><td colspan="5" class="empty">…</td></tr>
-                          </tbody>
-                        </table>
-                      </div>
-                    </div>
-
-                    <div class="card">
-                      <header class="card-title">📤 Phiếu xuất gần đây</header>
-                      <div class="table-wrap">
-                        <table class="table">
-                          <thead><tr><th>Mã PX</th><th>Kho</th><th>Ngày</th><th>Giá trị</th><th></th></tr></thead>
-                          <tbody>
-                            <tr><td>PX-0102</td><td>Kho thành phẩm</td><td>13/10/2025</td><td>₫ 42,700,000</td><td><button class="btn link">Xem</button></td></tr>
-                            <tr><td>PX-0101</td><td>Kho vật tư</td><td>09/10/2025</td><td>₫ 12,300,000</td><td><button class="btn link">Xem</button></td></tr>
-                            <tr><td colspan="5" class="empty">…</td></tr>
-                          </tbody>
-                        </table>
-                      </div>
-                    </div>
-
-                    <div class="card">
-                      <header class="card-title">🔔 Tồn kho thấp</header>
-                      <div class="table-wrap">
-                        <table class="table">
-                          <thead><tr><th>Mã hàng</th><th>Tên hàng</th><th>Tồn</th><th>Ngưỡng</th></tr></thead>
-                          <tbody>
-                            <tr><td>VT-GD300</td><td>Giấy Duplex 300gsm</td><td>120</td><td>300</td></tr>
-                            <tr><td>INK-CMYK</td><td>Mực 4C</td><td>8</td><td>20</td></tr>
-                            <tr><td colspan="4" class="empty">…</td></tr>
-                          </tbody>
-                        </table>
-                      </div>
-                    </div>
-
-                    <div class="card">
-                      <header class="card-title">📊 Thẻ kho (mẫu)</header>
-                      <div class="table-wrap">
-                        <table class="table">
-                          <thead><tr><th>Ngày</th><th>Loại</th><th>Phiếu</th><th>Nhập</th><th>Xuất</th><th>Tồn</th></tr></thead>
-                          <tbody>
-                            <tr><td>10/10</td><td>PN</td><td>PN-0004</td><td>+2,000</td><td></td><td>5,500</td></tr>
-                            <tr><td>12/10</td><td>PX</td><td>PX-0102</td><td></td><td>-700</td><td>4,800</td></tr>
-                            <tr><td colspan="6" class="empty">…</td></tr>
-                          </tbody>
-                        </table>
-                      </div>
-                    </div>
-                  </div>
-                `;
 
             // nút tạo chứng từ
             document.querySelectorAll(".btn-group .btn").forEach(b => {
@@ -589,84 +710,84 @@
             const codeLabel = type === 'receipt' ? 'Mã PN' : (type === 'issue' ? 'Mã PX' : 'Mã lệnh');
 
             app.innerHTML = `
-                  <div class="page-header">
-                    <div>
-                      <h2>${title}</h2>
-                      <p class="muted">${type === 'mo' ? 'Xuất vật tư cho sản xuất / nhập thành phẩm' : 'UI tĩnh minh họa nghiệp vụ kho'}</p>
-                    </div>
-                    <div class="actions">
-                      <button class="btn" id="btnBackInv">← Danh sách</button>
-                    </div>
-                  </div>
-
-                  <div class="card">
-                    <form class="form">
-                      <div class="grid form-grid">
-                        <label class="field">
-                          <span>${codeLabel}</span>
-                          <input class="input" placeholder="${type === 'receipt' ? 'PN-' : ''}${type === 'issue' ? 'PX-' : ''}${type === 'mo' ? 'MO-' : ''}0001" />
-                        </label>
-                        <label class="field">
-                          <span>Kho</span>
-                          <select class="input">
-                            <option>Kho vật tư</option>
-                            <option>Kho thành phẩm</option>
-                          </select>
-                        </label>
-                        <label class="field">
-                          <span>Ngày chứng từ</span>
-                          <input type="date" class="input" />
-                        </label>
-                        <label class="field">
-                          <span>${type === 'issue' ? 'Xuất cho' : (type === 'receipt' ? 'Nguồn nhập' : 'Xưởng')}</span>
-                          <input class="input" placeholder="${type === 'issue' ? 'Bán hàng/ Sản xuất' : (type === 'receipt' ? 'Mua hàng/ SXC/Trả lại' : 'Chuyền In 01')}" />
-                        </label>
-                        <label class="field">
-                          <span>Ghi chú</span>
-                          <input class="input" placeholder="Ghi chú (tùy chọn)" />
-                        </label>
-                      </div>
-
-                      <div class="subsection">
-                        <div class="subheader">
-                          <h3>Dòng vật tư / thành phẩm</h3>
-                          <button type="button" class="btn" id="btnAddInvLine">+ Thêm dòng</button>
+                      <div class="page-header">
+                        <div>
+                          <h2>${title}</h2>
+                          <p class="muted">${type === 'mo' ? 'Xuất vật tư cho sản xuất / nhập thành phẩm' : 'UI tĩnh minh họa nghiệp vụ kho'}</p>
                         </div>
-
-                        <div class="table-wrap">
-                          <table class="table compact" id="invLines">
-                            <thead>
-                              <tr>
-                                <th>Mã hàng</th><th>Tên hàng</th><th>Lô/Batch</th>
-                                <th>ĐVT</th><th>SL</th><th>Đơn giá</th>
-                                ${type !== 'mo' ? '<th>Giá trị</th>' : '<th>Ghi chú</th>'}
-                                <th></th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              <tr class="hint"><td colspan="8">Nhấn “+ Thêm dòng” để thêm vật tư/TP (UI tĩnh)</td></tr>
-                            </tbody>
-                          </table>
+                        <div class="actions">
+                          <button class="btn" id="btnBackInv">← Danh sách</button>
                         </div>
                       </div>
 
-                      <div class="grid form-grid totals">
-                        ${type !== 'mo' ? `
-                        <label class="field"><span>Tổng giá trị</span><input class="input strong" value="₫ 0" disabled /></label>
-                        ` : `
-                        <label class="field"><span>Tổng vật tư xuất</span><input class="input" value="0" disabled /></label>
-                        <label class="field"><span>Tổng thành phẩm nhập</span><input class="input" value="0" disabled /></label>
-                        `}
-                      </div>
+                      <div class="card">
+                        <form class="form">
+                          <div class="grid form-grid">
+                            <label class="field">
+                              <span>${codeLabel}</span>
+                              <input class="input" placeholder="${type === 'receipt' ? 'PN-' : ''}${type === 'issue' ? 'PX-' : ''}${type === 'mo' ? 'MO-' : ''}0001" />
+                            </label>
+                            <label class="field">
+                              <span>Kho</span>
+                              <select class="input">
+                                <option>Kho vật tư</option>
+                                <option>Kho thành phẩm</option>
+                              </select>
+                            </label>
+                            <label class="field">
+                              <span>Ngày chứng từ</span>
+                              <input type="date" class="input" />
+                            </label>
+                            <label class="field">
+                              <span>${type === 'issue' ? 'Xuất cho' : (type === 'receipt' ? 'Nguồn nhập' : 'Xưởng')}</span>
+                              <input class="input" placeholder="${type === 'issue' ? 'Bán hàng/ Sản xuất' : (type === 'receipt' ? 'Mua hàng/ SXC/Trả lại' : 'Chuyền In 01')}" />
+                            </label>
+                            <label class="field">
+                              <span>Ghi chú</span>
+                              <input class="input" placeholder="Ghi chú (tùy chọn)" />
+                            </label>
+                          </div>
 
-                      <div class="form-actions">
-                        <button type="button" class="btn">Lưu nháp</button>
-                        <button type="button" class="btn">Trình duyệt</button>
-                        <button type="button" class="btn primary" disabled>Ghi sổ</button>
+                          <div class="subsection">
+                            <div class="subheader">
+                              <h3>Dòng vật tư / thành phẩm</h3>
+                              <button type="button" class="btn" id="btnAddInvLine">+ Thêm dòng</button>
+                            </div>
+
+                            <div class="table-wrap">
+                              <table class="table compact" id="invLines">
+                                <thead>
+                                  <tr>
+                                    <th>Mã hàng</th><th>Tên hàng</th><th>Lô/Batch</th>
+                                    <th>ĐVT</th><th>SL</th><th>Đơn giá</th>
+                                    ${type !== 'mo' ? '<th>Giá trị</th>' : '<th>Ghi chú</th>'}
+                                    <th></th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  <tr class="hint"><td colspan="8">Nhấn “+ Thêm dòng” để thêm vật tư/TP (UI tĩnh)</td></tr>
+                                </tbody>
+                              </table>
+                            </div>
+                          </div>
+
+                          <div class="grid form-grid totals">
+                            ${type !== 'mo' ? `
+                            <label class="field"><span>Tổng giá trị</span><input class="input strong" value="₫ 0" disabled /></label>
+                            ` : `
+                            <label class="field"><span>Tổng vật tư xuất</span><input class="input" value="0" disabled /></label>
+                            <label class="field"><span>Tổng thành phẩm nhập</span><input class="input" value="0" disabled /></label>
+                            `}
+                          </div>
+
+                          <div class="form-actions">
+                            <button type="button" class="btn">Lưu nháp</button>
+                            <button type="button" class="btn">Trình duyệt</button>
+                            <button type="button" class="btn primary" disabled>Ghi sổ</button>
+                          </div>
+                        </form>
                       </div>
-                    </form>
-                  </div>
-                `;
+                    `;
 
             document.getElementById("btnBackInv").addEventListener("click", renderInventoryList);
 
@@ -675,15 +796,15 @@
             document.getElementById("btnAddInvLine").addEventListener("click", () => {
                 const tr = document.createElement("tr");
                 tr.innerHTML = `
-                    <td><input class="input cell" placeholder="${type === 'mo' ? 'VT-001' : 'VT-001'}" /></td>
-                    <td><input class="input cell" placeholder="${type === 'mo' ? 'Giấy Duplex 300gsm' : 'Giấy Duplex 300gsm'}" /></td>
-                    <td><input class="input cell" placeholder="BATCH-2025-10" /></td>
-                    <td><input class="input cell" placeholder="Kg / Tờ / Hộp" /></td>
-                    <td><input class="input cell" type="number" placeholder="${type === 'issue' ? '500' : '1000'}" /></td>
-                    <td><input class="input cell" type="number" placeholder="12000" /></td>
-                    ${type !== 'mo' ? `<td class="right">₫ 0</td>` : `<td><input class="input cell" placeholder="Xuất cho lệnh MO-0001" /></td>`}
-                    <td><button type="button" class="btn link">Xóa</button></td>
-                  `;
+                        <td><input class="input cell" placeholder="${type === 'mo' ? 'VT-001' : 'VT-001'}" /></td>
+                        <td><input class="input cell" placeholder="${type === 'mo' ? 'Giấy Duplex 300gsm' : 'Giấy Duplex 300gsm'}" /></td>
+                        <td><input class="input cell" placeholder="BATCH-2025-10" /></td>
+                        <td><input class="input cell" placeholder="Kg / Tờ / Hộp" /></td>
+                        <td><input class="input cell" type="number" placeholder="${type === 'issue' ? '500' : '1000'}" /></td>
+                        <td><input class="input cell" type="number" placeholder="12000" /></td>
+                        ${type !== 'mo' ? `<td class="right">₫ 0</td>` : `<td><input class="input cell" placeholder="Xuất cho lệnh MO-0001" /></td>`}
+                        <td><button type="button" class="btn link">Xóa</button></td>
+                      `;
                 tbody.querySelector(".hint")?.remove();
                 tbody.appendChild(tr);
             });
@@ -691,40 +812,40 @@
 
         function renderDebtList() {
             app.innerHTML = `
-              <div class="page-header">
-                <div>
-                  <h2>💰 Công nợ</h2>
-                  <p class="muted">Theo dõi phải thu (AR), phải trả (AP), tuổi nợ & nhắc nợ đến hạn</p>
-                </div>
-                <div class="actions">
-                  <div class="btn-group">
-                    <button class="btn tab active" data-tab="ar">Phải thu (AR)</button>
-                    <button class="btn tab" data-tab="ap">Phải trả (AP)</button>
-                    <button class="btn tab" data-tab="aging">Tuổi nợ (Aging)</button>
-                    <button class="btn tab" data-tab="remind">Nhắc nợ đến hạn</button>
+                  <div class="page-header">
+                    <div>
+                      <h2>💰 Công nợ</h2>
+                      <p class="muted">Theo dõi phải thu (AR), phải trả (AP), tuổi nợ & nhắc nợ đến hạn</p>
+                    </div>
+                    <div class="actions">
+                      <div class="btn-group">
+                        <button class="btn tab active" data-tab="ar">Phải thu (AR)</button>
+                        <button class="btn tab" data-tab="ap">Phải trả (AP)</button>
+                        <button class="btn tab" data-tab="aging">Tuổi nợ (Aging)</button>
+                        <button class="btn tab" data-tab="remind">Nhắc nợ đến hạn</button>
+                      </div>
+                    </div>
                   </div>
-                </div>
-              </div>
 
-              <div class="toolbar">
-                <input class="input" placeholder="Tìm theo khách hàng / nhà cung cấp / số chứng từ..." />
-                <select class="input">
-                  <option>Tất cả trạng thái</option>
-                  <option>Đến hạn</option>
-                  <option>Quá hạn</option>
-                  <option>Trong hạn</option>
-                </select>
-                <select class="input">
-                  <option>Tháng này</option>
-                  <option>Quý này</option>
-                  <option>Năm nay</option>
-                </select>
-                <div class="spacer"></div>
-                <button class="btn">Xuất Excel</button>
-              </div>
+                  <div class="toolbar">
+                    <input class="input" placeholder="Tìm theo khách hàng / nhà cung cấp / số chứng từ..." />
+                    <select class="input">
+                      <option>Tất cả trạng thái</option>
+                      <option>Đến hạn</option>
+                      <option>Quá hạn</option>
+                      <option>Trong hạn</option>
+                    </select>
+                    <select class="input">
+                      <option>Tháng này</option>
+                      <option>Quý này</option>
+                      <option>Năm nay</option>
+                    </select>
+                    <div class="spacer"></div>
+                    <button class="btn">Xuất Excel</button>
+                  </div>
 
-              <div id="debtContent"></div>
-            `;
+                  <div id="debtContent"></div>
+                `;
 
             // render tab mặc định
             renderDebtTab('ar');
@@ -743,176 +864,176 @@
             const wrap = document.getElementById('debtContent');
             if (tab === 'ar') {
                 wrap.innerHTML = `
-                <div class="card">
-                  <header class="card-title">Phải thu khách hàng</header>
-                  <div class="table-wrap">
-                    <table class="table">
-                      <thead>
-                        <tr>
-                          <th>Khách hàng</th><th>Số CT</th><th>Ngày</th>
-                          <th>Số tiền</th><th>Đã thu</th><th>Còn lại</th><th>Hạn TT</th><th>Trạng thái</th><th></th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        <tr>
-                          <td>Cty Bao Bì Minh Quân</td><td>INV-2025-001</td><td>05/10/2025</td>
-                          <td>₫ 420,000,000</td><td>₫ 200,000,000</td><td>₫ 220,000,000</td><td>20/10/2025</td>
-                          <td><span class="badge due">Đến hạn</span></td><td><button class="btn link">Nhắc nợ</button></td>
-                        </tr>
-                        <tr>
-                          <td>Vinprint JSC</td><td>INV-2025-002</td><td>08/10/2025</td>
-                          <td>₫ 18,700,000</td><td>₫ 0</td><td>₫ 18,700,000</td><td>28/10/2025</td>
-                          <td><span class="badge ok">Trong hạn</span></td><td><button class="btn link">Nhắc nợ</button></td>
-                        </tr>
-                        <tr><td colspan="9" class="empty">…</td></tr>
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              `;
+                    <div class="card">
+                      <header class="card-title">Phải thu khách hàng</header>
+                      <div class="table-wrap">
+                        <table class="table">
+                          <thead>
+                            <tr>
+                              <th>Khách hàng</th><th>Số CT</th><th>Ngày</th>
+                              <th>Số tiền</th><th>Đã thu</th><th>Còn lại</th><th>Hạn TT</th><th>Trạng thái</th><th></th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            <tr>
+                              <td>Cty Bao Bì Minh Quân</td><td>INV-2025-001</td><td>05/10/2025</td>
+                              <td>₫ 420,000,000</td><td>₫ 200,000,000</td><td>₫ 220,000,000</td><td>20/10/2025</td>
+                              <td><span class="badge due">Đến hạn</span></td><td><button class="btn link">Nhắc nợ</button></td>
+                            </tr>
+                            <tr>
+                              <td>Vinprint JSC</td><td>INV-2025-002</td><td>08/10/2025</td>
+                              <td>₫ 18,700,000</td><td>₫ 0</td><td>₫ 18,700,000</td><td>28/10/2025</td>
+                              <td><span class="badge ok">Trong hạn</span></td><td><button class="btn link">Nhắc nợ</button></td>
+                            </tr>
+                            <tr><td colspan="9" class="empty">…</td></tr>
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  `;
             } else if (tab === 'ap') {
                 wrap.innerHTML = `
-                <div class="card">
-                  <header class="card-title">Phải trả nhà cung cấp</header>
-                  <div class="table-wrap">
-                    <table class="table">
-                      <thead>
-                        <tr>
-                          <th>Nhà cung cấp</th><th>Số CT</th><th>Ngày</th>
-                          <th>Số tiền</th><th>Đã trả</th><th>Còn lại</th><th>Hạn TT</th><th>Trạng thái</th><th></th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        <tr>
-                          <td>Cty Giấy Hòa Việt</td><td>PINV-2025-015</td><td>04/10/2025</td>
-                          <td>₫ 350,000,000</td><td>₫ 150,000,000</td><td>₫ 200,000,000</td><td>18/10/2025</td>
-                          <td><span class="badge over">Quá hạn</span></td><td><button class="btn link">Lên lịch trả</button></td>
-                        </tr>
-                        <tr>
-                          <td>Cty Mực In Á Châu</td><td>PINV-2025-016</td><td>10/10/2025</td>
-                          <td>₫ 8,500,000</td><td>₫ 0</td><td>₫ 8,500,000</td><td>25/10/2025</td>
-                          <td><span class="badge ok">Trong hạn</span></td><td><button class="btn link">Lên lịch trả</button></td>
-                        </tr>
-                        <tr><td colspan="9" class="empty">…</td></tr>
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              `;
+                    <div class="card">
+                      <header class="card-title">Phải trả nhà cung cấp</header>
+                      <div class="table-wrap">
+                        <table class="table">
+                          <thead>
+                            <tr>
+                              <th>Nhà cung cấp</th><th>Số CT</th><th>Ngày</th>
+                              <th>Số tiền</th><th>Đã trả</th><th>Còn lại</th><th>Hạn TT</th><th>Trạng thái</th><th></th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            <tr>
+                              <td>Cty Giấy Hòa Việt</td><td>PINV-2025-015</td><td>04/10/2025</td>
+                              <td>₫ 350,000,000</td><td>₫ 150,000,000</td><td>₫ 200,000,000</td><td>18/10/2025</td>
+                              <td><span class="badge over">Quá hạn</span></td><td><button class="btn link">Lên lịch trả</button></td>
+                            </tr>
+                            <tr>
+                              <td>Cty Mực In Á Châu</td><td>PINV-2025-016</td><td>10/10/2025</td>
+                              <td>₫ 8,500,000</td><td>₫ 0</td><td>₫ 8,500,000</td><td>25/10/2025</td>
+                              <td><span class="badge ok">Trong hạn</span></td><td><button class="btn link">Lên lịch trả</button></td>
+                            </tr>
+                            <tr><td colspan="9" class="empty">…</td></tr>
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  `;
             } else if (tab === 'aging') {
                 wrap.innerHTML = `
-                <div class="grid two-col">
-                  <div class="card">
-                    <header class="card-title">Aging phải thu (AR)</header>
-                    <div class="table-wrap">
-                      <table class="table">
-                        <thead>
-                          <tr><th>Nhóm tuổi nợ</th><th>Số dư</th><th>Tỷ trọng</th></tr>
-                        </thead>
-                        <tbody>
-                          <tr><td>0–30 ngày</td><td>₫ 180,000,000</td><td>45%</td></tr>
-                          <tr><td>31–60 ngày</td><td>₫ 150,000,000</td><td>38%</td></tr>
-                          <tr><td>61–90 ngày</td><td>₫ 50,000,000</td><td>12%</td></tr>
-                          <tr><td>> 90 ngày</td><td>₫ 20,000,000</td><td>5%</td></tr>
-                          <tr><td colspan="3" class="empty">…</td></tr>
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
+                    <div class="grid two-col">
+                      <div class="card">
+                        <header class="card-title">Aging phải thu (AR)</header>
+                        <div class="table-wrap">
+                          <table class="table">
+                            <thead>
+                              <tr><th>Nhóm tuổi nợ</th><th>Số dư</th><th>Tỷ trọng</th></tr>
+                            </thead>
+                            <tbody>
+                              <tr><td>0–30 ngày</td><td>₫ 180,000,000</td><td>45%</td></tr>
+                              <tr><td>31–60 ngày</td><td>₫ 150,000,000</td><td>38%</td></tr>
+                              <tr><td>61–90 ngày</td><td>₫ 50,000,000</td><td>12%</td></tr>
+                              <tr><td>> 90 ngày</td><td>₫ 20,000,000</td><td>5%</td></tr>
+                              <tr><td colspan="3" class="empty">…</td></tr>
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
 
-                  <div class="card">
-                    <header class="card-title">Aging phải trả (AP)</header>
-                    <div class="table-wrap">
-                      <table class="table">
-                        <thead>
-                          <tr><th>Nhóm tuổi nợ</th><th>Số dư</th><th>Tỷ trọng</th></tr>
-                        </thead>
-                        <tbody>
-                          <tr><td>0–30 ngày</td><td>₫ 90,000,000</td><td>52%</td></tr>
-                          <tr><td>31–60 ngày</td><td>₫ 55,000,000</td><td>32%</td></tr>
-                          <tr><td>61–90 ngày</td><td>₫ 20,000,000</td><td>12%</td></tr>
-                          <tr><td>> 90 ngày</td><td>₫ 8,000,000</td><td>4%</td></tr>
-                          <tr><td colspan="3" class="empty">…</td></tr>
-                        </tbody>
-                      </table>
+                      <div class="card">
+                        <header class="card-title">Aging phải trả (AP)</header>
+                        <div class="table-wrap">
+                          <table class="table">
+                            <thead>
+                              <tr><th>Nhóm tuổi nợ</th><th>Số dư</th><th>Tỷ trọng</th></tr>
+                            </thead>
+                            <tbody>
+                              <tr><td>0–30 ngày</td><td>₫ 90,000,000</td><td>52%</td></tr>
+                              <tr><td>31–60 ngày</td><td>₫ 55,000,000</td><td>32%</td></tr>
+                              <tr><td>61–90 ngày</td><td>₫ 20,000,000</td><td>12%</td></tr>
+                              <tr><td>> 90 ngày</td><td>₫ 8,000,000</td><td>4%</td></tr>
+                              <tr><td colspan="3" class="empty">…</td></tr>
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                </div>
-              `;
+                  `;
             } else if (tab === 'remind') {
                 wrap.innerHTML = `
-                <div class="card">
-                  <header class="card-title">Nhắc nợ đến hạn & quá hạn</header>
-                  <ul class="alerts">
-                    <li>💳 <b>AR</b> – Minh Quân: còn ₫ 220,000,000, hạn 20/10/2025 → <span class="badge due">Đến hạn</span></li>
-                    <li>🏭 <b>AP</b> – Giấy Hòa Việt: còn ₫ 200,000,000, hạn 18/10/2025 → <span class="badge over">Quá hạn</span></li>
-                    <li>👔 <b>AR</b> – Vinprint JSC: còn ₫ 18,700,000, hạn 28/10/2025 → <span class="badge ok">Trong hạn</span></li>
-                  </ul>
-                  <div class="form-actions" style="justify-content:flex-start">
-                    <button class="btn">Gửi email nhắc nợ</button>
-                    <button class="btn">Xuất danh sách</button>
-                  </div>
-                </div>
-              `;
+                    <div class="card">
+                      <header class="card-title">Nhắc nợ đến hạn & quá hạn</header>
+                      <ul class="alerts">
+                        <li>💳 <b>AR</b> – Minh Quân: còn ₫ 220,000,000, hạn 20/10/2025 → <span class="badge due">Đến hạn</span></li>
+                        <li>🏭 <b>AP</b> – Giấy Hòa Việt: còn ₫ 200,000,000, hạn 18/10/2025 → <span class="badge over">Quá hạn</span></li>
+                        <li>👔 <b>AR</b> – Vinprint JSC: còn ₫ 18,700,000, hạn 28/10/2025 → <span class="badge ok">Trong hạn</span></li>
+                      </ul>
+                      <div class="form-actions" style="justify-content:flex-start">
+                        <button class="btn">Gửi email nhắc nợ</button>
+                        <button class="btn">Xuất danh sách</button>
+                      </div>
+                    </div>
+                  `;
             }
         }
 
         function renderCash() {
             app.innerHTML = `
-          <div class="page-header">
-            <div>
-              <h2>💵 Tiền mặt (Quỹ)</h2>
-              <p class="muted">Thu – chi, sổ quỹ, kiểm kê quỹ</p>
-            </div>
-            <div class="actions">
-              <div class="btn-group">
-                <button class="btn" data-cash="receipt">+ Phiếu thu</button>
-                <button class="btn" data-cash="payment">- Phiếu chi</button>
-                <button class="btn" data-cash="count">🧮 Kiểm kê quỹ</button>
+              <div class="page-header">
+                <div>
+                  <h2>💵 Tiền mặt (Quỹ)</h2>
+                  <p class="muted">Thu – chi, sổ quỹ, kiểm kê quỹ</p>
+                </div>
+                <div class="actions">
+                  <div class="btn-group">
+                    <button class="btn" data-cash="receipt">+ Phiếu thu</button>
+                    <button class="btn" data-cash="payment">- Phiếu chi</button>
+                    <button class="btn" data-cash="count">🧮 Kiểm kê quỹ</button>
+                  </div>
+                </div>
               </div>
-            </div>
-          </div>
 
-          <div class="toolbar">
-            <input class="input" placeholder="Tìm chứng từ / người nộp / người nhận..." />
-            <select class="input">
-              <option>Tháng này</option><option>Quý này</option><option>Năm nay</option>
-            </select>
-            <div class="spacer"></div>
-            <button class="btn">Xuất Excel</button>
-            <button class="btn">In</button>
-          </div>
-
-          <div class="grid two-col">
-            <div class="card">
-              <header class="card-title">📘 Sổ quỹ (gần đây)</header>
-              <div class="table-wrap">
-                <table class="table">
-                  <thead><tr><th>Ngày</th><th>Số CT</th><th>Diễn giải</th><th>Thu</th><th>Chi</th><th>Số dư</th></tr></thead>
-                  <tbody>
-                    <tr><td>12/10/2025</td><td>PT-0021</td><td>Thu công nợ SO-1002</td><td>₫ 10,000,000</td><td></td><td>₫ 215,000,000</td></tr>
-                    <tr><td>11/10/2025</td><td>PC-0145</td><td>Chi tạm ứng SX</td><td></td><td>₫ 5,000,000</td><td>₫ 205,000,000</td></tr>
-                    <tr><td colspan="6" class="empty">…</td></tr>
-                  </tbody>
-                </table>
+              <div class="toolbar">
+                <input class="input" placeholder="Tìm chứng từ / người nộp / người nhận..." />
+                <select class="input">
+                  <option>Tháng này</option><option>Quý này</option><option>Năm nay</option>
+                </select>
+                <div class="spacer"></div>
+                <button class="btn">Xuất Excel</button>
+                <button class="btn">In</button>
               </div>
-            </div>
 
-            <div class="card">
-              <header class="card-title">🧾 Phiếu thu/chi gần đây</header>
-              <div class="table-wrap">
-                <table class="table">
-                  <thead><tr><th>Loại</th><th>Số CT</th><th>Ngày</th><th>Số tiền</th><th>Đối tượng</th><th></th></tr></thead>
-                  <tbody>
-                    <tr><td>Thu</td><td>PT-0021</td><td>12/10/2025</td><td>₫ 10,000,000</td><td>Minh Quân</td><td><button class="btn link">Xem</button></td></tr>
-                    <tr><td>Chi</td><td>PC-0145</td><td>11/10/2025</td><td>₫ 5,000,000</td><td>Tạm ứng SX</td><td><button class="btn link">Xem</button></td></tr>
-                    <tr><td colspan="6" class="empty">…</td></tr>
-                  </tbody>
-                </table>
+              <div class="grid two-col">
+                <div class="card">
+                  <header class="card-title">📘 Sổ quỹ (gần đây)</header>
+                  <div class="table-wrap">
+                    <table class="table">
+                      <thead><tr><th>Ngày</th><th>Số CT</th><th>Diễn giải</th><th>Thu</th><th>Chi</th><th>Số dư</th></tr></thead>
+                      <tbody>
+                        <tr><td>12/10/2025</td><td>PT-0021</td><td>Thu công nợ SO-1002</td><td>₫ 10,000,000</td><td></td><td>₫ 215,000,000</td></tr>
+                        <tr><td>11/10/2025</td><td>PC-0145</td><td>Chi tạm ứng SX</td><td></td><td>₫ 5,000,000</td><td>₫ 205,000,000</td></tr>
+                        <tr><td colspan="6" class="empty">…</td></tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                <div class="card">
+                  <header class="card-title">🧾 Phiếu thu/chi gần đây</header>
+                  <div class="table-wrap">
+                    <table class="table">
+                      <thead><tr><th>Loại</th><th>Số CT</th><th>Ngày</th><th>Số tiền</th><th>Đối tượng</th><th></th></tr></thead>
+                      <tbody>
+                        <tr><td>Thu</td><td>PT-0021</td><td>12/10/2025</td><td>₫ 10,000,000</td><td>Minh Quân</td><td><button class="btn link">Xem</button></td></tr>
+                        <tr><td>Chi</td><td>PC-0145</td><td>11/10/2025</td><td>₫ 5,000,000</td><td>Tạm ứng SX</td><td><button class="btn link">Xem</button></td></tr>
+                        <tr><td colspan="6" class="empty">…</td></tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
               </div>
-            </div>
-          </div>
-        `;
+            `;
 
             document.querySelectorAll('[data-cash]').forEach(b => {
                 b.addEventListener('click', () => renderCashDoc(b.dataset.cash));
@@ -925,95 +1046,95 @@
                 : type === 'payment' ? '➖ Phiếu chi'
                     : '🧮 Kiểm kê quỹ';
             app.innerHTML = `
-          <div class="page-header">
-            <div><h2>${title}</h2><p class="muted">UI tĩnh mô phỏng chứng từ quỹ</p></div>
-            <div class="actions"><button class="btn" id="backCash">← Quay lại</button></div>
-          </div>
-
-          <div class="card">
-            <form class="form">
-              <div class="grid form-grid">
-                <label class="field"><span>Số chứng từ</span><input class="input" placeholder="${type === 'receipt' ? 'PT-' : 'PC-'}0001" /></label>
-                <label class="field"><span>Ngày</span><input type="date" class="input" /></label>
-                <label class="field"><span>${type === 'receipt' ? 'Người nộp' : 'Người nhận'}</span><input class="input" placeholder="Tên người/đơn vị" /></label>
-                <label class="field"><span>Số tiền</span><input type="number" class="input" placeholder="0" /></label>
-                ${type !== 'count' ? `
-                <label class="field"><span>Lý do</span><input class="input" placeholder="Thu công nợ/ Chi tạm ứng..." /></label>`: ''}
-                ${type === 'count' ? `
-                <label class="field"><span>Số dư sổ</span><input class="input" value="₫ 205,000,000" disabled /></label>
-                <label class="field"><span>Thực tế kiểm đếm</span><input class="input" placeholder="₫ 0" /></label>`: ''}
+              <div class="page-header">
+                <div><h2>${title}</h2><p class="muted">UI tĩnh mô phỏng chứng từ quỹ</p></div>
+                <div class="actions"><button class="btn" id="backCash">← Quay lại</button></div>
               </div>
 
-              <div class="form-actions">
-                <button type="button" class="btn">Lưu nháp</button>
-                <button type="button" class="btn">In</button>
-                <button type="button" class="btn primary" disabled>Ghi sổ</button>
+              <div class="card">
+                <form class="form">
+                  <div class="grid form-grid">
+                    <label class="field"><span>Số chứng từ</span><input class="input" placeholder="${type === 'receipt' ? 'PT-' : 'PC-'}0001" /></label>
+                    <label class="field"><span>Ngày</span><input type="date" class="input" /></label>
+                    <label class="field"><span>${type === 'receipt' ? 'Người nộp' : 'Người nhận'}</span><input class="input" placeholder="Tên người/đơn vị" /></label>
+                    <label class="field"><span>Số tiền</span><input type="number" class="input" placeholder="0" /></label>
+                    ${type !== 'count' ? `
+                    <label class="field"><span>Lý do</span><input class="input" placeholder="Thu công nợ/ Chi tạm ứng..." /></label>`: ''}
+                    ${type === 'count' ? `
+                    <label class="field"><span>Số dư sổ</span><input class="input" value="₫ 205,000,000" disabled /></label>
+                    <label class="field"><span>Thực tế kiểm đếm</span><input class="input" placeholder="₫ 0" /></label>`: ''}
+                  </div>
+
+                  <div class="form-actions">
+                    <button type="button" class="btn">Lưu nháp</button>
+                    <button type="button" class="btn">In</button>
+                    <button type="button" class="btn primary" disabled>Ghi sổ</button>
+                  </div>
+                </form>
               </div>
-            </form>
-          </div>
-        `;
+            `;
             document.getElementById('backCash').addEventListener('click', renderCash);
         }
 
         /* ====== NGÂN HÀNG ====== */
         function renderBank() {
             app.innerHTML = `
-          <div class="page-header">
-            <div>
-              <h2>🏦 Ngân hàng</h2>
-              <p class="muted">Thu – chi qua NH, sổ phụ, đối chiếu</p>
-            </div>
-            <div class="actions">
-              <div class="btn-group">
-                <button class="btn" data-bank="receipt">+ UNC Thu</button>
-                <button class="btn" data-bank="payment">- UNC Chi</button>
-                <button class="btn" data-bank="reconcile">🔁 Đối chiếu sổ phụ</button>
+              <div class="page-header">
+                <div>
+                  <h2>🏦 Ngân hàng</h2>
+                  <p class="muted">Thu – chi qua NH, sổ phụ, đối chiếu</p>
+                </div>
+                <div class="actions">
+                  <div class="btn-group">
+                    <button class="btn" data-bank="receipt">+ UNC Thu</button>
+                    <button class="btn" data-bank="payment">- UNC Chi</button>
+                    <button class="btn" data-bank="reconcile">🔁 Đối chiếu sổ phụ</button>
+                  </div>
+                </div>
               </div>
-            </div>
-          </div>
 
-          <div class="toolbar">
-            <input class="input" placeholder="Tìm theo số CT / tài khoản / diễn giải..." />
-            <select class="input">
-              <option>TK 1121 – VND</option><option>TK 1122 – USD</option>
-            </select>
-            <select class="input">
-              <option>Tháng này</option><option>Quý này</option><option>Năm nay</option>
-            </select>
-            <div class="spacer"></div>
-            <button class="btn">Xuất Excel</button>
-          </div>
-
-          <div class="grid two-col">
-            <div class="card">
-              <header class="card-title">🧾 Chứng từ ngân hàng</header>
-              <div class="table-wrap">
-                <table class="table">
-                  <thead><tr><th>Loại</th><th>Số CT</th><th>Ngày</th><th>Số tiền</th><th>Tài khoản</th><th>Đối tượng</th><th></th></tr></thead>
-                  <tbody>
-                    <tr><td>Thu</td><td>UNC-THU-009</td><td>12/10/2025</td><td>₫ 210,000,000</td><td>1121</td><td>Minh Quân</td><td><button class="btn link">Xem</button></td></tr>
-                    <tr><td>Chi</td><td>UNC-CHI-077</td><td>11/10/2025</td><td>₫ 95,000,000</td><td>1121</td><td>Giấy Hòa Việt</td><td><button class="btn link">Xem</button></td></tr>
-                    <tr><td colspan="7" class="empty">…</td></tr>
-                  </tbody>
-                </table>
+              <div class="toolbar">
+                <input class="input" placeholder="Tìm theo số CT / tài khoản / diễn giải..." />
+                <select class="input">
+                  <option>TK 1121 – VND</option><option>TK 1122 – USD</option>
+                </select>
+                <select class="input">
+                  <option>Tháng này</option><option>Quý này</option><option>Năm nay</option>
+                </select>
+                <div class="spacer"></div>
+                <button class="btn">Xuất Excel</button>
               </div>
-            </div>
 
-            <div class="card">
-              <header class="card-title">📑 Đối chiếu sổ phụ</header>
-              <div class="table-wrap">
-                <table class="table">
-                  <thead><tr><th>Ngày</th><th>Mô tả</th><th>Số tiền (NH)</th><th>Đã hạch toán</th><th>Chênh lệch</th></tr></thead>
-                  <tbody>
-                    <tr><td>12/10</td><td>Tiền về bán hàng SO-1002</td><td>₫ 210,000,000</td><td>₫ 210,000,000</td><td>₫ 0</td></tr>
-                    <tr><td>11/10</td><td>Thanh toán NCC Hòa Việt</td><td>₫ 95,000,000</td><td>₫ 80,000,000</td><td>₫ 15,000,000</td></tr>
-                    <tr><td colspan="5" class="empty">…</td></tr>
-                  </tbody>
-                </table>
+              <div class="grid two-col">
+                <div class="card">
+                  <header class="card-title">🧾 Chứng từ ngân hàng</header>
+                  <div class="table-wrap">
+                    <table class="table">
+                      <thead><tr><th>Loại</th><th>Số CT</th><th>Ngày</th><th>Số tiền</th><th>Tài khoản</th><th>Đối tượng</th><th></th></tr></thead>
+                      <tbody>
+                        <tr><td>Thu</td><td>UNC-THU-009</td><td>12/10/2025</td><td>₫ 210,000,000</td><td>1121</td><td>Minh Quân</td><td><button class="btn link">Xem</button></td></tr>
+                        <tr><td>Chi</td><td>UNC-CHI-077</td><td>11/10/2025</td><td>₫ 95,000,000</td><td>1121</td><td>Giấy Hòa Việt</td><td><button class="btn link">Xem</button></td></tr>
+                        <tr><td colspan="7" class="empty">…</td></tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                <div class="card">
+                  <header class="card-title">📑 Đối chiếu sổ phụ</header>
+                  <div class="table-wrap">
+                    <table class="table">
+                      <thead><tr><th>Ngày</th><th>Mô tả</th><th>Số tiền (NH)</th><th>Đã hạch toán</th><th>Chênh lệch</th></tr></thead>
+                      <tbody>
+                        <tr><td>12/10</td><td>Tiền về bán hàng SO-1002</td><td>₫ 210,000,000</td><td>₫ 210,000,000</td><td>₫ 0</td></tr>
+                        <tr><td>11/10</td><td>Thanh toán NCC Hòa Việt</td><td>₫ 95,000,000</td><td>₫ 80,000,000</td><td>₫ 15,000,000</td></tr>
+                        <tr><td colspan="5" class="empty">…</td></tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
               </div>
-            </div>
-          </div>
-        `;
+            `;
 
             document.querySelectorAll('[data-bank]').forEach(b => {
                 b.addEventListener('click', () => renderBankDoc(b.dataset.bank));
@@ -1026,91 +1147,91 @@
                 : type === 'payment' ? '➖ UNC Chi'
                     : '🔁 Đối chiếu sổ phụ';
             app.innerHTML = `
-          <div class="page-header">
-            <div><h2>${title}</h2><p class="muted">UI tĩnh mô phỏng chứng từ ngân hàng</p></div>
-            <div class="actions"><button class="btn" id="backBank">← Quay lại</button></div>
-          </div>
-
-          <div class="card">
-            <form class="form">
-              <div class="grid form-grid">
-                ${type !== 'reconcile' ? `
-                <label class="field"><span>Số chứng từ</span><input class="input" placeholder="${type === 'receipt' ? 'UNC-THU-' : 'UNC-CHI-'}0001" /></label>
-                <label class="field"><span>Ngày</span><input type="date" class="input" /></label>
-                <label class="field"><span>Tài khoản ngân hàng</span>
-                  <select class="input"><option>1121 – VND</option><option>1122 – USD</option></select>
-                </label>
-                <label class="field"><span>Số tiền</span><input type="number" class="input" placeholder="0" /></label>
-                <label class="field"><span>Đối tượng</span><input class="input" placeholder="Khách hàng / NCC" /></label>
-                <label class="field"><span>Nội dung</span><input class="input" placeholder="Thanh toán, thu nợ..." /></label>
-                ` : `
-                <label class="field"><span>Kỳ đối chiếu</span>
-                  <select class="input"><option>Tháng này</option><option>Tháng trước</option></select>
-                </label>
-                <label class="field"><span>Tài khoản</span>
-                  <select class="input"><option>1121 – VND</option><option>1122 – USD</option></select>
-                </label>
-                `}
+              <div class="page-header">
+                <div><h2>${title}</h2><p class="muted">UI tĩnh mô phỏng chứng từ ngân hàng</p></div>
+                <div class="actions"><button class="btn" id="backBank">← Quay lại</button></div>
               </div>
 
-              ${type === 'reconcile' ? `
-              <div class="subsection">
-                <div class="subheader"><h3>Kết quả đối chiếu</h3></div>
-                <div class="table-wrap">
-                  <table class="table compact">
-                    <thead><tr><th>Ngày</th><th>Mô tả</th><th>Sổ phụ NH</th><th>Hạch toán</th><th>Chênh lệch</th></tr></thead>
-                    <tbody>
-                      <tr><td>11/10</td><td>Thanh toán NCC Hòa Việt</td><td>₫ 95,000,000</td><td>₫ 80,000,000</td><td>₫ 15,000,000</td></tr>
-                      <tr><td colspan="5" class="empty">…</td></tr>
-                    </tbody>
-                  </table>
-                </div>
-              </div>` : ''}
+              <div class="card">
+                <form class="form">
+                  <div class="grid form-grid">
+                    ${type !== 'reconcile' ? `
+                    <label class="field"><span>Số chứng từ</span><input class="input" placeholder="${type === 'receipt' ? 'UNC-THU-' : 'UNC-CHI-'}0001" /></label>
+                    <label class="field"><span>Ngày</span><input type="date" class="input" /></label>
+                    <label class="field"><span>Tài khoản ngân hàng</span>
+                      <select class="input"><option>1121 – VND</option><option>1122 – USD</option></select>
+                    </label>
+                    <label class="field"><span>Số tiền</span><input type="number" class="input" placeholder="0" /></label>
+                    <label class="field"><span>Đối tượng</span><input class="input" placeholder="Khách hàng / NCC" /></label>
+                    <label class="field"><span>Nội dung</span><input class="input" placeholder="Thanh toán, thu nợ..." /></label>
+                    ` : `
+                    <label class="field"><span>Kỳ đối chiếu</span>
+                      <select class="input"><option>Tháng này</option><option>Tháng trước</option></select>
+                    </label>
+                    <label class="field"><span>Tài khoản</span>
+                      <select class="input"><option>1121 – VND</option><option>1122 – USD</option></select>
+                    </label>
+                    `}
+                  </div>
 
-              <div class="form-actions">
-                <button type="button" class="btn">Lưu</button>
-                <button type="button" class="btn">In</button>
-                <button type="button" class="btn primary" disabled>Ghi sổ</button>
+                  ${type === 'reconcile' ? `
+                  <div class="subsection">
+                    <div class="subheader"><h3>Kết quả đối chiếu</h3></div>
+                    <div class="table-wrap">
+                      <table class="table compact">
+                        <thead><tr><th>Ngày</th><th>Mô tả</th><th>Sổ phụ NH</th><th>Hạch toán</th><th>Chênh lệch</th></tr></thead>
+                        <tbody>
+                          <tr><td>11/10</td><td>Thanh toán NCC Hòa Việt</td><td>₫ 95,000,000</td><td>₫ 80,000,000</td><td>₫ 15,000,000</td></tr>
+                          <tr><td colspan="5" class="empty">…</td></tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>` : ''}
+
+                  <div class="form-actions">
+                    <button type="button" class="btn">Lưu</button>
+                    <button type="button" class="btn">In</button>
+                    <button type="button" class="btn primary" disabled>Ghi sổ</button>
+                  </div>
+                </form>
               </div>
-            </form>
-          </div>
-        `;
+            `;
             document.getElementById('backBank').addEventListener('click', renderBank);
         }
 
         function renderReport() {
             app.innerHTML = `
-      <div class="page-header">
-        <div>
-          <h2>📈 Báo cáo</h2>
-          <p class="muted">Báo cáo doanh thu, chi phí, lợi nhuận, dòng tiền, kho, công nợ</p>
-        </div>
-        <div class="actions">
-          <div class="btn-group">
-            <button class="btn tab active" data-rpt="pl">LN theo kỳ (P&L)</button>
-            <button class="btn tab" data-rpt="cashflow">Dòng tiền</button>
-            <button class="btn tab" data-rpt="inventory">Báo cáo kho</button>
-            <button class="btn tab" data-rpt="arap">Công nợ tổng hợp</button>
+          <div class="page-header">
+            <div>
+              <h2>📈 Báo cáo</h2>
+              <p class="muted">Báo cáo doanh thu, chi phí, lợi nhuận, dòng tiền, kho, công nợ</p>
+            </div>
+            <div class="actions">
+              <div class="btn-group">
+                <button class="btn tab active" data-rpt="pl">LN theo kỳ (P&L)</button>
+                <button class="btn tab" data-rpt="cashflow">Dòng tiền</button>
+                <button class="btn tab" data-rpt="inventory">Báo cáo kho</button>
+                <button class="btn tab" data-rpt="arap">Công nợ tổng hợp</button>
+              </div>
+            </div>
           </div>
-        </div>
-      </div>
 
-      <div class="toolbar">
-        <select class="input" id="period">
-          <option>Tháng này</option>
-          <option>Quý này</option>
-          <option selected>Năm nay</option>
-          <option>Tùy chọn…</option>
-        </select>
-        <input class="input" id="from" type="date" style="display:none"/>
-        <input class="input" id="to" type="date" style="display:none"/>
-        <div class="spacer"></div>
-        <button class="btn" id="btnPdf">Xuất PDF</button>
-        <button class="btn" id="btnXls">Xuất Excel</button>
-      </div>
+          <div class="toolbar">
+            <select class="input" id="period">
+              <option>Tháng này</option>
+              <option>Quý này</option>
+              <option selected>Năm nay</option>
+              <option>Tùy chọn…</option>
+            </select>
+            <input class="input" id="from" type="date" style="display:none"/>
+            <input class="input" id="to" type="date" style="display:none"/>
+            <div class="spacer"></div>
+            <button class="btn" id="btnPdf">Xuất PDF</button>
+            <button class="btn" id="btnXls">Xuất Excel</button>
+          </div>
 
-      <div id="reportView"></div>
-    `;
+          <div id="reportView"></div>
+        `;
 
             document.querySelectorAll('.btn.tab').forEach(b => {
                 b.addEventListener('click', () => {
@@ -1138,144 +1259,144 @@
             const el = document.getElementById('reportView');
             if (kind === 'pl') {
                 el.innerHTML = `
-        <div class="card">
-          <header class="card-title">Báo cáo Lãi/Lỗ (P&L) — Năm nay</header>
-          <div class="table-wrap">
-            <table class="table">
-              <thead><tr><th>Khoản mục</th><th>Số tiền</th></tr></thead>
-              <tbody>
-                <tr><td>Doanh thu thuần</td><td class="right">₫ 0</td></tr>
-                <tr><td>Giá vốn hàng bán</td><td class="right">₫ 0</td></tr>
-                <tr><td><b>Lợi nhuận gộp</b></td><td class="right"><b>₫ 0</b></td></tr>
-                <tr><td>Chi phí bán hàng</td><td class="right">₫ 0</td></tr>
-                <tr><td>Chi phí quản lý</td><td class="right">₫ 0</td></tr>
-                <tr><td>Chi phí tài chính</td><td class="right">₫ 0</td></tr>
-                <tr><td><b>Lợi nhuận trước thuế</b></td><td class="right"><b>₫ 0</b></td></tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-      `;
+            <div class="card">
+              <header class="card-title">Báo cáo Lãi/Lỗ (P&L) — Năm nay</header>
+              <div class="table-wrap">
+                <table class="table">
+                  <thead><tr><th>Khoản mục</th><th>Số tiền</th></tr></thead>
+                  <tbody>
+                    <tr><td>Doanh thu thuần</td><td class="right">₫ 0</td></tr>
+                    <tr><td>Giá vốn hàng bán</td><td class="right">₫ 0</td></tr>
+                    <tr><td><b>Lợi nhuận gộp</b></td><td class="right"><b>₫ 0</b></td></tr>
+                    <tr><td>Chi phí bán hàng</td><td class="right">₫ 0</td></tr>
+                    <tr><td>Chi phí quản lý</td><td class="right">₫ 0</td></tr>
+                    <tr><td>Chi phí tài chính</td><td class="right">₫ 0</td></tr>
+                    <tr><td><b>Lợi nhuận trước thuế</b></td><td class="right"><b>₫ 0</b></td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          `;
             } else if (kind === 'cashflow') {
                 el.innerHTML = `
-        <div class="card">
-          <header class="card-title">Dòng tiền — Năm nay</header>
-          <div class="table-wrap">
-            <table class="table">
-              <thead><tr><th>Nhóm</th><th>Số tiền</th></tr></thead>
-              <tbody>
-                <tr><td>Tiền thu từ bán hàng</td><td class="right">₫ 0</td></tr>
-                <tr><td>Tiền chi trả NCC</td><td class="right">₫ 0</td></tr>
-                <tr><td>Chi phí vận hành</td><td class="right">₫ 0</td></tr>
-                <tr><td><b>Lưu chuyển tiền thuần</b></td><td class="right"><b>₫ 0</b></td></tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-      `;
+            <div class="card">
+              <header class="card-title">Dòng tiền — Năm nay</header>
+              <div class="table-wrap">
+                <table class="table">
+                  <thead><tr><th>Nhóm</th><th>Số tiền</th></tr></thead>
+                  <tbody>
+                    <tr><td>Tiền thu từ bán hàng</td><td class="right">₫ 0</td></tr>
+                    <tr><td>Tiền chi trả NCC</td><td class="right">₫ 0</td></tr>
+                    <tr><td>Chi phí vận hành</td><td class="right">₫ 0</td></tr>
+                    <tr><td><b>Lưu chuyển tiền thuần</b></td><td class="right"><b>₫ 0</b></td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          `;
             } else if (kind === 'inventory') {
                 el.innerHTML = `
-        <div class="card">
-          <header class="card-title">Báo cáo tồn kho theo nhóm hàng</header>
-          <div class="table-wrap">
-            <table class="table">
-              <thead><tr><th>Nhóm hàng</th><th>Số mặt hàng</th><th>SL tồn</th><th>Giá trị</th></tr></thead>
-              <tbody>
-                <tr><td>Giấy</td><td>25</td><td>0</td><td class="right">₫ 0</td></tr>
-                <tr><td>Mực in</td><td>8</td><td>0</td><td class="right">₫ 0</td></tr>
-                <tr><td>Thành phẩm</td><td>40</td><td>0</td><td class="right">₫ 0</td></tr>
-                <tr><td colspan="4" class="empty">…</td></tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-      `;
+            <div class="card">
+              <header class="card-title">Báo cáo tồn kho theo nhóm hàng</header>
+              <div class="table-wrap">
+                <table class="table">
+                  <thead><tr><th>Nhóm hàng</th><th>Số mặt hàng</th><th>SL tồn</th><th>Giá trị</th></tr></thead>
+                  <tbody>
+                    <tr><td>Giấy</td><td>25</td><td>0</td><td class="right">₫ 0</td></tr>
+                    <tr><td>Mực in</td><td>8</td><td>0</td><td class="right">₫ 0</td></tr>
+                    <tr><td>Thành phẩm</td><td>40</td><td>0</td><td class="right">₫ 0</td></tr>
+                    <tr><td colspan="4" class="empty">…</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          `;
             } else if (kind === 'arap') {
                 el.innerHTML = `
-        <div class="card">
-          <header class="card-title">Tổng hợp công nợ (AR/AP)</header>
-          <div class="table-wrap">
-            <table class="table">
-              <thead><tr><th>Loại</th><th>Số dư đầu</th><th>Phát sinh</th><th>Số dư cuối</th></tr></thead>
-              <tbody>
-                <tr><td>Phải thu (AR)</td><td class="right">₫ 0</td><td class="right">₫ 0</td><td class="right">₫ 0</td></tr>
-                <tr><td>Phải trả (AP)</td><td class="right">₫ 0</td><td class="right">₫ 0</td><td class="right">₫ 0</td></tr>
-                <tr><td colspan="4" class="empty">…</td></tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-      `;
+            <div class="card">
+              <header class="card-title">Tổng hợp công nợ (AR/AP)</header>
+              <div class="table-wrap">
+                <table class="table">
+                  <thead><tr><th>Loại</th><th>Số dư đầu</th><th>Phát sinh</th><th>Số dư cuối</th></tr></thead>
+                  <tbody>
+                    <tr><td>Phải thu (AR)</td><td class="right">₫ 0</td><td class="right">₫ 0</td><td class="right">₫ 0</td></tr>
+                    <tr><td>Phải trả (AP)</td><td class="right">₫ 0</td><td class="right">₫ 0</td><td class="right">₫ 0</td></tr>
+                    <tr><td colspan="4" class="empty">…</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          `;
             }
         }
 
         /* ====== THUẾ (GTGT) ====== */
         function renderTax() {
             app.innerHTML = `
-      <div class="page-header">
-        <div>
-          <h2>🧾 Thuế GTGT</h2>
-          <p class="muted">Tổng hợp dữ liệu và lập tờ khai (UI tĩnh)</p>
-        </div>
-        <div class="actions">
-          <button class="btn" id="btnGen">Tổng hợp dữ liệu</button>
-          <button class="btn" id="btnExportXml">Kết xuất XML</button>
-          <button class="btn" id="btnExportPdf">In tờ khai (PDF)</button>
-        </div>
-      </div>
-
-      <div class="toolbar">
-        <select class="input" id="taxPeriod">
-          <option>Kỳ tháng 10/2025</option>
-          <option>Kỳ tháng 09/2025</option>
-          <option>Kỳ quý 3/2025</option>
-        </select>
-        <div class="spacer"></div>
-        <span class="muted">Mẫu: 01/GTGT (UI demo)</span>
-      </div>
-
-      <div class="grid two-col">
-        <div class="card">
-          <header class="card-title">HHDV bán ra (đầu ra)</header>
-          <div class="table-wrap">
-            <table class="table">
-              <thead><tr><th>Số HĐ</th><th>Ngày</th><th>KH</th><th>Tiền hàng</th><th>Thuế</th></tr></thead>
-              <tbody>
-                <tr><td>0000123</td><td>05/10/2025</td><td>Minh Quân</td><td class="right">₫ 0</td><td class="right">₫ 0</td></tr>
-                <tr><td colspan="5" class="empty">…</td></tr>
-              </tbody>
-            </table>
+          <div class="page-header">
+            <div>
+              <h2>🧾 Thuế GTGT</h2>
+              <p class="muted">Tổng hợp dữ liệu và lập tờ khai (UI tĩnh)</p>
+            </div>
+            <div class="actions">
+              <button class="btn" id="btnGen">Tổng hợp dữ liệu</button>
+              <button class="btn" id="btnExportXml">Kết xuất XML</button>
+              <button class="btn" id="btnExportPdf">In tờ khai (PDF)</button>
+            </div>
           </div>
-        </div>
 
-        <div class="card">
-          <header class="card-title">HHDV mua vào (đầu vào)</header>
-          <div class="table-wrap">
-            <table class="table">
-              <thead><tr><th>Số HĐ</th><th>Ngày</th><th>NCC</th><th>Tiền hàng</th><th>Thuế</th></tr></thead>
-              <tbody>
-                <tr><td>0000456</td><td>04/10/2025</td><td>Giấy Hòa Việt</td><td class="right">₫ 0</td><td class="right">₫ 0</td></tr>
-                <tr><td colspan="5" class="empty">…</td></tr>
-              </tbody>
-            </table>
+          <div class="toolbar">
+            <select class="input" id="taxPeriod">
+              <option>Kỳ tháng 10/2025</option>
+              <option>Kỳ tháng 09/2025</option>
+              <option>Kỳ quý 3/2025</option>
+            </select>
+            <div class="spacer"></div>
+            <span class="muted">Mẫu: 01/GTGT (UI demo)</span>
           </div>
-        </div>
 
-        <div class="card">
-          <header class="card-title">Tổng hợp tờ khai (mẫu)</header>
-          <div class="table-wrap">
-            <table class="table">
-              <thead><tr><th>Chỉ tiêu</th><th>Diễn giải</th><th>Giá trị</th></tr></thead>
-              <tbody>
-                <tr><td>[32]</td><td>Thuế GTGT phải nộp</td><td class="right"><b>₫ 0</b></td></tr>
-                <tr><td>[25]</td><td>Thuế GTGT còn được khấu trừ</td><td class="right">₫ 0</td></tr>
-                <tr><td colspan="3" class="empty">…</td></tr>
-              </tbody>
-            </table>
+          <div class="grid two-col">
+            <div class="card">
+              <header class="card-title">HHDV bán ra (đầu ra)</header>
+              <div class="table-wrap">
+                <table class="table">
+                  <thead><tr><th>Số HĐ</th><th>Ngày</th><th>KH</th><th>Tiền hàng</th><th>Thuế</th></tr></thead>
+                  <tbody>
+                    <tr><td>0000123</td><td>05/10/2025</td><td>Minh Quân</td><td class="right">₫ 0</td><td class="right">₫ 0</td></tr>
+                    <tr><td colspan="5" class="empty">…</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div class="card">
+              <header class="card-title">HHDV mua vào (đầu vào)</header>
+              <div class="table-wrap">
+                <table class="table">
+                  <thead><tr><th>Số HĐ</th><th>Ngày</th><th>NCC</th><th>Tiền hàng</th><th>Thuế</th></tr></thead>
+                  <tbody>
+                    <tr><td>0000456</td><td>04/10/2025</td><td>Giấy Hòa Việt</td><td class="right">₫ 0</td><td class="right">₫ 0</td></tr>
+                    <tr><td colspan="5" class="empty">…</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div class="card">
+              <header class="card-title">Tổng hợp tờ khai (mẫu)</header>
+              <div class="table-wrap">
+                <table class="table">
+                  <thead><tr><th>Chỉ tiêu</th><th>Diễn giải</th><th>Giá trị</th></tr></thead>
+                  <tbody>
+                    <tr><td>[32]</td><td>Thuế GTGT phải nộp</td><td class="right"><b>₫ 0</b></td></tr>
+                    <tr><td>[25]</td><td>Thuế GTGT còn được khấu trừ</td><td class="right">₫ 0</td></tr>
+                    <tr><td colspan="3" class="empty">…</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
           </div>
-        </div>
-      </div>
-    `;
+        `;
 
             // nút giả lập hành vi
             document.getElementById('btnGen').addEventListener('click', () => alert('Tổng hợp dữ liệu thuế (demo)'));
@@ -1286,23 +1407,23 @@
         /* ====== PHÂN QUYỀN & CẤU HÌNH ====== */
         function renderSettings() {
             app.innerHTML = `
-      <div class="page-header">
-        <div>
-          <h2>⚙️ Cấu hình & Phân quyền</h2>
-          <p class="muted">Quản lý người dùng, vai trò theo bộ phận, và quyền trên từng phân hệ</p>
-        </div>
-        <div class="actions">
-          <div class="btn-group">
-            <button class="btn tab active" data-set="users">Người dùng</button>
-            <button class="btn tab" data-set="roles">Vai trò</button>
-            <button class="btn tab" data-set="perm">Phân quyền</button>
-            <button class="btn tab" data-set="general">Cấu hình chung</button>
+          <div class="page-header">
+            <div>
+              <h2>⚙️ Cấu hình & Phân quyền</h2>
+              <p class="muted">Quản lý người dùng, vai trò theo bộ phận, và quyền trên từng phân hệ</p>
+            </div>
+            <div class="actions">
+              <div class="btn-group">
+                <button class="btn tab active" data-set="users">Người dùng</button>
+                <button class="btn tab" data-set="roles">Vai trò</button>
+                <button class="btn tab" data-set="perm">Phân quyền</button>
+                <button class="btn tab" data-set="general">Cấu hình chung</button>
+              </div>
+            </div>
           </div>
-        </div>
-      </div>
 
-      <div id="settingsView"></div>
-    `;
+          <div id="settingsView"></div>
+        `;
 
             document.querySelectorAll('.btn.tab').forEach(b => {
                 b.addEventListener('click', () => {
@@ -1320,91 +1441,91 @@
 
             if (tab === 'users') {
                 el.innerHTML = `
-        <div class="page-header" style="margin-top:-8px">
-          <div><h3>Người dùng</h3><p class="muted">Tạo mới / khóa / reset mật khẩu</p></div>
-          <div class="actions"><button class="btn primary" id="btnNewUser">+ Tạo người dùng</button></div>
-        </div>
+            <div class="page-header" style="margin-top:-8px">
+              <div><h3>Người dùng</h3><p class="muted">Tạo mới / khóa / reset mật khẩu</p></div>
+              <div class="actions"><button class="btn primary" id="btnNewUser">+ Tạo người dùng</button></div>
+            </div>
 
-        <div class="card">
-          <div class="table-wrap">
-            <table class="table">
-              <thead><tr><th>Tài khoản</th><th>Họ tên</th><th>Vai trò</th><th>Trạng thái</th><th></th></tr></thead>
-              <tbody>
-                <tr><td>ketoan.truong</td><td>Nguyễn Thị A</td><td>Kế toán tổng hợp</td><td><span class="badge ok">Hoạt động</span></td><td><button class="btn link">Sửa</button></td></tr>
-                <tr><td>thuquy.01</td><td>Trần Văn B</td><td>Thủ quỹ</td><td><span class="badge ok">Hoạt động</span></td><td><button class="btn link">Sửa</button></td></tr>
-                <tr><td>thukho.01</td><td>Phạm C</td><td>Thủ kho</td><td><span class="badge warn">Tạm khóa</span></td><td><button class="btn link">Sửa</button></td></tr>
-                <tr><td colspan="5" class="empty">…</td></tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-      `;
+            <div class="card">
+              <div class="table-wrap">
+                <table class="table">
+                  <thead><tr><th>Tài khoản</th><th>Họ tên</th><th>Vai trò</th><th>Trạng thái</th><th></th></tr></thead>
+                  <tbody>
+                    <tr><td>ketoan.truong</td><td>Nguyễn Thị A</td><td>Kế toán tổng hợp</td><td><span class="badge ok">Hoạt động</span></td><td><button class="btn link">Sửa</button></td></tr>
+                    <tr><td>thuquy.01</td><td>Trần Văn B</td><td>Thủ quỹ</td><td><span class="badge ok">Hoạt động</span></td><td><button class="btn link">Sửa</button></td></tr>
+                    <tr><td>thukho.01</td><td>Phạm C</td><td>Thủ kho</td><td><span class="badge warn">Tạm khóa</span></td><td><button class="btn link">Sửa</button></td></tr>
+                    <tr><td colspan="5" class="empty">…</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          `;
 
                 document.getElementById('btnNewUser').addEventListener('click', () => {
                     el.innerHTML = `
-          <div class="page-header" style="margin-top:-8px">
-            <div><h3>➕ Tạo người dùng</h3><p class="muted">UI tĩnh – chưa kết nối dữ liệu</p></div>
-            <div class="actions"><button class="btn" id="backUsers">← Danh sách</button></div>
-          </div>
+              <div class="page-header" style="margin-top:-8px">
+                <div><h3>➕ Tạo người dùng</h3><p class="muted">UI tĩnh – chưa kết nối dữ liệu</p></div>
+                <div class="actions"><button class="btn" id="backUsers">← Danh sách</button></div>
+              </div>
 
-          <div class="card">
-            <form class="form">
-              <div class="grid form-grid">
-                <label class="field"><span>Tài khoản</span><input class="input" placeholder="vd: ketoan.truong" /></label>
-                <label class="field"><span>Họ tên</span><input class="input" placeholder="Họ và tên" /></label>
-                <label class="field"><span>Email</span><input class="input" type="email" placeholder="user@example.com" /></label>
-                <label class="field"><span>Vai trò</span>
-                  <select class="input">
-                    <option>Kế toán mua hàng</option>
-                    <option>Kế toán bán hàng</option>
-                    <option>Thủ kho</option>
-                    <option>Thủ quỹ</option>
-                    <option>Kế toán thuế</option>
-                    <option>Giám đốc</option>
-                    <option>Kế toán tổng hợp</option>
-                  </select>
-                </label>
-                <label class="field"><span>Trạng thái</span>
-                  <select class="input"><option>Hoạt động</option><option>Tạm khóa</option></select>
-                </label>
+              <div class="card">
+                <form class="form">
+                  <div class="grid form-grid">
+                    <label class="field"><span>Tài khoản</span><input class="input" placeholder="vd: ketoan.truong" /></label>
+                    <label class="field"><span>Họ tên</span><input class="input" placeholder="Họ và tên" /></label>
+                    <label class="field"><span>Email</span><input class="input" type="email" placeholder="user@example.com" /></label>
+                    <label class="field"><span>Vai trò</span>
+                      <select class="input">
+                        <option>Kế toán mua hàng</option>
+                        <option>Kế toán bán hàng</option>
+                        <option>Thủ kho</option>
+                        <option>Thủ quỹ</option>
+                        <option>Kế toán thuế</option>
+                        <option>Giám đốc</option>
+                        <option>Kế toán tổng hợp</option>
+                      </select>
+                    </label>
+                    <label class="field"><span>Trạng thái</span>
+                      <select class="input"><option>Hoạt động</option><option>Tạm khóa</option></select>
+                    </label>
+                  </div>
+                  <div class="form-actions">
+                    <button type="button" class="btn">Lưu</button>
+                    <button type="button" class="btn">Đặt lại mật khẩu</button>
+                    <button type="button" class="btn primary" disabled>Tạo</button>
+                  </div>
+                </form>
               </div>
-              <div class="form-actions">
-                <button type="button" class="btn">Lưu</button>
-                <button type="button" class="btn">Đặt lại mật khẩu</button>
-                <button type="button" class="btn primary" disabled>Tạo</button>
-              </div>
-            </form>
-          </div>
-        `;
+            `;
                     document.getElementById('backUsers').addEventListener('click', () => renderSettingsTab('users'));
                 });
             }
 
             if (tab === 'roles') {
                 el.innerHTML = `
-        <div class="page-header" style="margin-top:-8px">
-          <div><h3>Vai trò (Role)</h3><p class="muted">Vai trò theo bộ phận: mua hàng, bán hàng, kho, quỹ, NH, thuế, GD</p></div>
-          <div class="actions"><button class="btn primary" id="btnNewRole">+ Tạo vai trò</button></div>
-        </div>
+            <div class="page-header" style="margin-top:-8px">
+              <div><h3>Vai trò (Role)</h3><p class="muted">Vai trò theo bộ phận: mua hàng, bán hàng, kho, quỹ, NH, thuế, GD</p></div>
+              <div class="actions"><button class="btn primary" id="btnNewRole">+ Tạo vai trò</button></div>
+            </div>
 
-        <div class="card">
-          <div class="table-wrap">
-            <table class="table">
-              <thead><tr><th>Mã</th><th>Tên vai trò</th><th>Mô tả</th><th></th></tr></thead>
-              <tbody>
-                <tr><td>PO_ACC</td><td>Kế toán mua hàng</td><td>Quản lý đơn/nhập/hoá đơn mua</td><td><button class="btn link">Sửa</button></td></tr>
-                <tr><td>SO_ACC</td><td>Kế toán bán hàng</td><td>Quản lý báo giá/đơn/hoá đơn bán</td><td><button class="btn link">Sửa</button></td></tr>
-                <tr><td>STORE</td><td>Thủ kho</td><td>Nhập–xuất–tồn, lệnh SX</td><td><button class="btn link">Sửa</button></td></tr>
-                <tr><td>CASH</td><td>Thủ quỹ</td><td>Phiếu thu/chi, sổ quỹ</td><td><button class="btn link">Sửa</button></td></tr>
-                <tr><td>BANK</td><td>Kế toán NH</td><td>UNC, đối chiếu sổ phụ</td><td><button class="btn link">Sửa</button></td></tr>
-                <tr><td>TAX</td><td>Kế toán thuế</td><td>Tổng hợp & tờ khai GTGT</td><td><button class="btn link">Sửa</button></td></tr>
-                <tr><td>CEO</td><td>Giám đốc</td><td>Xem tổng quan, duyệt chứng từ</td><td><button class="btn link">Sửa</button></td></tr>
-                <tr><td colspan="4" class="empty">…</td></tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-      `;
+            <div class="card">
+              <div class="table-wrap">
+                <table class="table">
+                  <thead><tr><th>Mã</th><th>Tên vai trò</th><th>Mô tả</th><th></th></tr></thead>
+                  <tbody>
+                    <tr><td>PO_ACC</td><td>Kế toán mua hàng</td><td>Quản lý đơn/nhập/hoá đơn mua</td><td><button class="btn link">Sửa</button></td></tr>
+                    <tr><td>SO_ACC</td><td>Kế toán bán hàng</td><td>Quản lý báo giá/đơn/hoá đơn bán</td><td><button class="btn link">Sửa</button></td></tr>
+                    <tr><td>STORE</td><td>Thủ kho</td><td>Nhập–xuất–tồn, lệnh SX</td><td><button class="btn link">Sửa</button></td></tr>
+                    <tr><td>CASH</td><td>Thủ quỹ</td><td>Phiếu thu/chi, sổ quỹ</td><td><button class="btn link">Sửa</button></td></tr>
+                    <tr><td>BANK</td><td>Kế toán NH</td><td>UNC, đối chiếu sổ phụ</td><td><button class="btn link">Sửa</button></td></tr>
+                    <tr><td>TAX</td><td>Kế toán thuế</td><td>Tổng hợp & tờ khai GTGT</td><td><button class="btn link">Sửa</button></td></tr>
+                    <tr><td>CEO</td><td>Giám đốc</td><td>Xem tổng quan, duyệt chứng từ</td><td><button class="btn link">Sửa</button></td></tr>
+                    <tr><td colspan="4" class="empty">…</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          `;
 
                 document.getElementById('btnNewRole')?.addEventListener('click', () => {
                     alert('UI tĩnh: form tạo role (demo)');
@@ -1413,69 +1534,69 @@
 
             if (tab === 'perm') {
                 el.innerHTML = `
-        <div class="page-header" style="margin-top:-8px">
-          <div><h3>Ma trận phân quyền</h3><p class="muted">Gán quyền theo Vai trò × Phân hệ</p></div>
-          <div class="actions"><button class="btn">Lưu</button></div>
-        </div>
+            <div class="page-header" style="margin-top:-8px">
+              <div><h3>Ma trận phân quyền</h3><p class="muted">Gán quyền theo Vai trò × Phân hệ</p></div>
+              <div class="actions"><button class="btn">Lưu</button></div>
+            </div>
 
-        <div class="card">
-          <div class="table-wrap">
-            <table class="table perm">
-              <thead>
-                <tr>
-                  <th>Vai trò \\ Phân hệ</th>
-                  <th>Dashboard</th>
-                  <th>Mua hàng</th>
-                  <th>Bán hàng</th>
-                  <th>Kho</th>
-                  <th>Công nợ</th>
-                  <th>Quỹ</th>
-                  <th>Ngân hàng</th>
-                  <th>Báo cáo</th>
-                  <th>Thuế</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${renderPermRow('PO_ACC')}
-                ${renderPermRow('SO_ACC')}
-                ${renderPermRow('STORE')}
-                ${renderPermRow('CASH')}
-                ${renderPermRow('BANK')}
-                ${renderPermRow('TAX')}
-                ${renderPermRow('CEO')}
-              </tbody>
-            </table>
-          </div>
-          <p class="muted" style="margin-top:8px">Mỗi ô gồm: <b>X</b>=Xem, <b>S</b>=Sửa, <b>Xóa</b>, <b>D</b>=Duyệt, <b>G</b>=Ghi sổ (UI tĩnh).</p>
-        </div>
-      `;
+            <div class="card">
+              <div class="table-wrap">
+                <table class="table perm">
+                  <thead>
+                    <tr>
+                      <th>Vai trò \\ Phân hệ</th>
+                      <th>Dashboard</th>
+                      <th>Mua hàng</th>
+                      <th>Bán hàng</th>
+                      <th>Kho</th>
+                      <th>Công nợ</th>
+                      <th>Quỹ</th>
+                      <th>Ngân hàng</th>
+                      <th>Báo cáo</th>
+                      <th>Thuế</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    ${renderPermRow('PO_ACC')}
+                    ${renderPermRow('SO_ACC')}
+                    ${renderPermRow('STORE')}
+                    ${renderPermRow('CASH')}
+                    ${renderPermRow('BANK')}
+                    ${renderPermRow('TAX')}
+                    ${renderPermRow('CEO')}
+                  </tbody>
+                </table>
+              </div>
+              <p class="muted" style="margin-top:8px">Mỗi ô gồm: <b>X</b>=Xem, <b>S</b>=Sửa, <b>Xóa</b>, <b>D</b>=Duyệt, <b>G</b>=Ghi sổ (UI tĩnh).</p>
+            </div>
+          `;
             }
 
             if (tab === 'general') {
                 el.innerHTML = `
-        <div class="card">
-          <header class="card-title">Cấu hình chung</header>
-          <div class="grid form-grid">
-            <label class="field">
-              <span>Ngôn ngữ</span>
-              <select class="input" id="langSelect">
-                <option value="vi" selected>Tiếng Việt</option>
-                <option value="en">English</option>
-              </select>
-            </label>
-            <label class="field">
-              <span>Giao diện</span>
-              <select class="input" id="themeSelect">
-                <option value="dark" selected>Tối (Dark)</option>
-                <option value="light">Sáng (Light)</option>
-              </select>
-            </label>
-          </div>
-          <div class="form-actions">
-            <button class="btn" id="btnSaveCfg">Lưu</button>
-          </div>
-        </div>
-      `;
+            <div class="card">
+              <header class="card-title">Cấu hình chung</header>
+              <div class="grid form-grid">
+                <label class="field">
+                  <span>Ngôn ngữ</span>
+                  <select class="input" id="langSelect">
+                    <option value="vi" selected>Tiếng Việt</option>
+                    <option value="en">English</option>
+                  </select>
+                </label>
+                <label class="field">
+                  <span>Giao diện</span>
+                  <select class="input" id="themeSelect">
+                    <option value="dark" selected>Tối (Dark)</option>
+                    <option value="light">Sáng (Light)</option>
+                  </select>
+                </label>
+              </div>
+              <div class="form-actions">
+                <button class="btn" id="btnSaveCfg">Lưu</button>
+              </div>
+            </div>
+          `;
                 document.getElementById('btnSaveCfg').addEventListener('click', () => alert('Lưu cấu hình (demo)'));
                 document.getElementById('themeSelect').addEventListener('change', (e) => {
                     document.documentElement.dataset.theme = e.target.value; // demo toggle
@@ -1487,18 +1608,18 @@
         // helper render hàng quyền
         function renderPermRow(role) {
             const cell = () => `
-      <td class="perm-cell">
-        <label><input type="checkbox"> X</label>
-        <label><input type="checkbox"> S</label>
-        <label><input type="checkbox"> Xóa</label>
-        <label><input type="checkbox"> D</label>
-        <label><input type="checkbox"> G</label>
-      </td>`;
+          <td class="perm-cell">
+            <label><input type="checkbox"> X</label>
+            <label><input type="checkbox"> S</label>
+            <label><input type="checkbox"> Xóa</label>
+            <label><input type="checkbox"> D</label>
+            <label><input type="checkbox"> G</label>
+          </td>`;
             return `
-      <tr>
-        <td><b>${role}</b></td>
-        ${cell()}${cell()}${cell()}${cell()}${cell()}${cell()}${cell()}${cell()}${cell()}
-      </tr>`;
+          <tr>
+            <td><b>${role}</b></td>
+            ${cell()}${cell()}${cell()}${cell()}${cell()}${cell()}${cell()}${cell()}${cell()}
+          </tr>`;
         }
 
         /* ====== ROUTER: thêm nhánh settings ====== */
@@ -1519,6 +1640,28 @@
             else if (view === "settings") renderSettings();
             else app.innerHTML = `<h2>${label}</h2><p>Nội dung mô-đun <b>${view}</b> sẽ hiển thị ở đây.</p>`;
         }
+        // ===== WebView2 Bridge =====
+        const isWebView = !!(window.chrome && window.chrome.webview);
+
+        function api(cmd, payload = {}) {
+            if (!isWebView) {
+                console.warn("Not running inside WebView2 — returning mock.");
+                return Promise.resolve([]);
+            }
+            window.chrome.webview.postMessage({ cmd, ...payload });
+            return new Promise(resolve => {
+                function handler(e) {
+                    try { resolve(JSON.parse(e.data)); }
+                    catch { resolve(e.data); }
+                    window.chrome.webview.removeEventListener('message', handler);
+                }
+                window.chrome.webview.addEventListener('message', handler);
+            });
+        }
+
+        // Helpers
+        const fmtMoney = n => (n ?? 0).toLocaleString('vi-VN', { style: 'currency', currency: 'VND' });
+        const fmtDate = s => !s ? '' : new Date(s).toLocaleDateString('vi-VN');
         // Gắn sự kiện sidebar (giữ nguyên)
         document.querySelectorAll(".sidebar button[data-view]").forEach(btn => {
             btn.addEventListener("click", () => navigate(btn.dataset.view, btn.textContent));
@@ -1527,6 +1670,33 @@
 
         // Mặc định mở Dashboard
         navigate("dashboard", "🏠 Tổng quan");
+       
+      // Nhận dữ liệu từ C#
+      window.chrome?.webview?.addEventListener('message', (e) => {
+                let data;
+            try {data = typeof e.data === 'string' ? JSON.parse(e.data) : e.data; }
+            catch {data = e.data; }
+
+            if (data?.error) {
+                // 🔴 hiện lỗi “thật” từ backend
+                alert("Lỗi backend:\n\n" + data.error);
+            console.error("Backend error:", data.error);
+            return;
+        }
+
+            console.log("Backend data:", data);
+        // TODO: cập nhật UI theo data nếu cần
+      });
+
+            // Helper gửi lệnh lên C#
+            function sendToDotnet(payload) {
+        try {
+                window.chrome?.webview?.postMessage(payload);
+        } catch (err) {
+                alert("Không gửi được lệnh lên backend: " + err);
+        }
+      }
+
     </script>
 
 </body>

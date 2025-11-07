@@ -20,37 +20,40 @@ namespace Accounting.Application.Services
                .ToListAsync();
 
         // Tạo đơn mua + (tuỳ chọn) các dòng
+        // Tạo đơn mua + (tuỳ chọn) các dòng
+        // Tạo đơn mua + (tuỳ chọn) các dòng
         public async Task<DonMua> CreateDonMuaAsync(DonMuaCreateDto dto, IEnumerable<DonMuaDongDto>? lines = null)
         {
             if (dto == null) throw new ArgumentNullException(nameof(dto));
-
-            // trùng số chứng từ?
             if (string.IsNullOrWhiteSpace(dto.SoCt))
                 throw new InvalidOperationException("Số chứng từ không được rỗng.");
 
             if (await _db.DonMua.AnyAsync(x => x.SoCt == dto.SoCt))
                 throw new InvalidOperationException($"Số chứng từ {dto.SoCt} đã tồn tại.");
 
-            // tồn tại NCC?
             if (!await _db.NhaCungCap.AsNoTracking().AnyAsync(x => x.Id == dto.NhaCungCapId))
                 throw new InvalidOperationException($"Không tìm thấy Nhà cung cấp Id={dto.NhaCungCapId}");
 
             var don = new DonMua
             {
-                SoCt = dto.SoCt,
+                SoCt = dto.SoCt.Trim(),
                 NhaCungCapId = dto.NhaCungCapId,
-                NgayDon = dto.NgayDon,
+                NgayDon = dto.NgayDon,                   // DTO: DateTime (không nullable)
                 TienTe = string.IsNullOrWhiteSpace(dto.TienTe) ? "VND" : dto.TienTe!,
-                TyGia = dto.TyGia ?? 1.0000m,
+                TyGia = dto.TyGia ?? 1m,
+                // đảm bảo không bao giờ null khi EF đọc lại
+                TienHang = 0m,
+                TienThue = 0m,
+                TongTien = 0m,
                 CoHopDongLon = dto.CoHopDongLon,
                 GhiChu = dto.GhiChu,
-                TrangThai = "nhap" // nhap/đang_thực_hiện/hoàn_thành...
+                TrangThai = "nhap"
             };
 
             _db.DonMua.Add(don);
-            await _db.SaveChangesAsync(); // để có Id
+            await _db.SaveChangesAsync();
 
-            if (lines != null)
+            if (lines != null && lines.Any())
             {
                 foreach (var l in lines)
                     _db.DonMuaDong.Add(await MapDonMuaDongAsync(don.Id, l));
@@ -59,13 +62,14 @@ namespace Accounting.Application.Services
                 await RecalcDonMuaTotalsAsync(don.Id);
             }
 
-            return await _db.DonMua
-                           .Include(x => x.Dong)
-                           .FirstAsync(x => x.Id == don.Id);
+            return await _db.DonMua.Include(x => x.Dong).FirstAsync(x => x.Id == don.Id);
         }
 
+
+
+
         // Thêm một dòng cho đơn mua
-        public async Task<DonMua> AddDongDonMuaAsync(int donMuaId, DonMuaDongDto l)
+        public async Task<DonMua> AddDongDonMuaAsync(long donMuaId, DonMuaDongDto l)
         {
             if (!await _db.DonMua.AnyAsync(x => x.Id == donMuaId))
                 throw new KeyNotFoundException($"Không tìm thấy Đơn mua Id={donMuaId}");
@@ -78,55 +82,55 @@ namespace Accounting.Application.Services
         }
 
         // Map + tính thuế/tiền dòng (kiểm tra dữ liệu rõ ràng)
-        private async Task<DonMuaDong> MapDonMuaDongAsync(int donMuaId, DonMuaDongDto l)
+        private async Task<DonMuaDong> MapDonMuaDongAsync(long donMuaId, DonMuaDongDto l)
         {
-            try
+            if (l == null) throw new InvalidOperationException("Dòng đơn rỗng.");
+            if (l.VatTuId <= 0) throw new InvalidOperationException($"VatTuId không hợp lệ: {l.VatTuId}");
+            if (l.SoLuong < 0) throw new InvalidOperationException("SoLuong phải ≥ 0.");
+            if (l.DonGia < 0) throw new InvalidOperationException("DonGia phải ≥ 0.");
+
+            // kiểm tra vật tư tồn tại
+            var vt = await _db.VatTu.AsNoTracking()
+                     .SingleOrDefaultAsync(x => x.Id == l.VatTuId)
+                     ?? throw new InvalidOperationException($"Không tìm thấy Vật tư Id={l.VatTuId}");
+
+            // Thuế suất: DTO là int (không nullable). Nếu = 0 → coi như không áp thuế.
+            long? thueSuatId = l.ThueSuatId > 0 ? l.ThueSuatId : (long?)null;
+            decimal tyLeThue = 0m;
+            if (thueSuatId.HasValue)
             {
-                if (l == null) throw new InvalidOperationException("Dòng đơn rỗng.");
-                if (l.VatTuId <= 0) throw new InvalidOperationException($"VatTuId không hợp lệ: {l.VatTuId}");
-                if (l.ThueSuatId <= 0) throw new InvalidOperationException($"ThueSuatId không hợp lệ: {l.ThueSuatId}");
-                if (l.SoLuong <= 0) throw new InvalidOperationException("SoLuong phải > 0.");
-                if (l.DonGia < 0) throw new InvalidOperationException("DonGia phải ≥ 0.");
-
-                // Tồn tại Vật tư?
-                var vt = await _db.VatTu.AsNoTracking()
-                        .SingleOrDefaultAsync(x => x.Id == l.VatTuId)
-                      ?? throw new InvalidOperationException($"Không tìm thấy Vật tư Id={l.VatTuId}");
-
-                // Tồn tại Thuế suất?
                 var thue = await _db.ThueSuat.AsNoTracking()
-                          .SingleOrDefaultAsync(x => x.Id == l.ThueSuatId)
-                        ?? throw new InvalidOperationException($"Không tìm thấy Thuế suất Id={l.ThueSuatId}");
-
-                var thanhTien = Math.Round(l.SoLuong * l.DonGia, 2);
-                var tienThue = Math.Round(thanhTien * (decimal)thue.TyLe, 2);
-
-                return new DonMuaDong
-                {
-                    DonMuaId = donMuaId,
-                    VatTuId = l.VatTuId,
-                    KichThuoc = l.KichThuoc,
-                    LoaiGiay = l.LoaiGiay,
-                    DinhLuongGsm = l.DinhLuongGsm,
-                    MauIn = l.MauIn,
-                    GiaCong = l.GiaCong,
-                    SoLuong = l.SoLuong,
-                    DonGia = l.DonGia,
-                    ThueSuatId = l.ThueSuatId,
-                    TienThue = tienThue,
-                    ThanhTien = thanhTien
-                };
+                           .SingleOrDefaultAsync(x => x.Id == thueSuatId.Value)
+                           ?? throw new InvalidOperationException($"Không tìm thấy Thuế suất Id={thueSuatId.Value}");
+                tyLeThue = (decimal)thue.TyLe; // giả sử TyLe là decimal/float trong DB
             }
-            catch (Exception ex)
+
+            var soLuong = l.SoLuong;                // decimal non-null
+            var donGia = l.DonGia;                 // decimal non-null
+            var thanhTien = Math.Round(soLuong * donGia, 2, MidpointRounding.AwayFromZero);
+            var tienThue = Math.Round(thanhTien * tyLeThue, 2, MidpointRounding.AwayFromZero);
+
+            return new DonMuaDong
             {
-                throw new InvalidOperationException(
-                    $"Lỗi map dòng: VatTuId={l?.VatTuId}, ThueSuatId={l?.ThueSuatId}, SL={l?.SoLuong}, DG={l?.DonGia}.",
-                    ex);
-            }
+                DonMuaId = donMuaId,
+                VatTuId = l.VatTuId,
+                KichThuoc = l.KichThuoc,
+                LoaiGiay = l.LoaiGiay,
+                DinhLuongGsm = l.DinhLuongGsm,
+                MauIn = l.MauIn,
+                GiaCong = l.GiaCong,
+                SoLuong = soLuong,        // decimal
+                DonGia = donGia,         // decimal
+                ThueSuatId = thueSuatId,  // long? (có thể null nếu ThueSuatId==0)
+                TienThue = tienThue,      // decimal? trong entity -> gán số thực
+                ThanhTien = thanhTien     // decimal? trong entity -> gán số thực
+            };
         }
 
+
+
         // Tính lại tổng đơn mua
-        private async Task RecalcDonMuaTotalsAsync(int donMuaId)
+        private async Task RecalcDonMuaTotalsAsync(long donMuaId)
         {
             var lines = await _db.DonMuaDong
                                  .Where(x => x.DonMuaId == donMuaId)
@@ -143,6 +147,7 @@ namespace Accounting.Application.Services
 
             await _db.SaveChangesAsync();
         }
+
 
         // ========= PHIẾU NHẬP (tạo từ đơn mua) =========
 

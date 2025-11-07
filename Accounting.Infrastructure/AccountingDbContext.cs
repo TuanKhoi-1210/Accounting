@@ -1,5 +1,6 @@
 ﻿using Accounting.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
+using System.Reflection.Emit;
 
 namespace Accounting.Infrastructure
 {
@@ -10,10 +11,9 @@ namespace Accounting.Infrastructure
     {
         public const string Schema = "acc";
 
-        // Cho phép khởi tạo bằng DI/options
+        // DI/options
         public AccountingDbContext(DbContextOptions<AccountingDbContext> options) : base(options) { }
-
-        // Cho phép khởi tạo mặc định (Form1 tạo thẳng new AccountingDbContext())
+        // Khởi tạo mặc định (Form1 có thể new trực tiếp)
         public AccountingDbContext() { }
 
         // ===== DbSet Danh mục =====
@@ -30,23 +30,27 @@ namespace Accounting.Infrastructure
         public DbSet<DonMuaDong> DonMuaDong => Set<DonMuaDong>();
         public DbSet<PhieuNhap> PhieuNhap => Set<PhieuNhap>();
         public DbSet<PhieuNhapDong> PhieuNhapDong => Set<PhieuNhapDong>();
+
+        public DbSet<PhieuXuat> PhieuXuat => Set<PhieuXuat>();
+        public DbSet<PhieuXuatDong> PhieuXuatDong => Set<PhieuXuatDong>();
         public DbSet<HoaDonMua> HoaDonMua => Set<HoaDonMua>();
         public DbSet<HoaDonMuaDong> HoaDonMuaDong => Set<HoaDonMuaDong>();
 
-        /// <summary>
-        /// Kết nối mặc định tới SQL Server nếu chưa được cấu hình từ bên ngoài.
-        /// Thay Server=... đúng tên instance SQL của bạn (xem trong SSMS).
-        /// </summary>
+        public DbSet<DonBan> DonBan => Set<DonBan>();
+        public DbSet<DonBanDong> DonBanDong => Set<DonBanDong>();
+        public DbSet<HoaDonBan> HoaDonBan => Set<HoaDonBan>();
+        public DbSet<HoaDonBanDong> HoaDonBanDong => Set<HoaDonBanDong>();
+
+        // ===== Nghiệp vụ Sản xuất (đã tối giản) =====
+        public DbSet<LenhSanXuat> LenhSanXuat { get; set; } = default!;
+        public DbSet<LenhSanXuatDong> LenhSanXuatDong { get; set; } = default!;
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
         {
             if (!optionsBuilder.IsConfigured)
             {
-                // Ví dụ LocalDB:
-                // optionsBuilder.UseSqlServer("Server=(localdb)\\MSSQLLocalDB;Database=AccountingDB;Trusted_Connection=True;TrustServerCertificate=True;");
-
-                // Ví dụ SQL Express / SQL Server cài máy bạn:
+                // Chỉnh đúng instance SQL của bạn nếu cần
                 optionsBuilder.UseSqlServer(
-                    "Server=DESKTOP-Khoi\\SQLEXPRESS;Database=AccountingDB;Trusted_Connection=True;TrustServerCertificate=True;");
+                    "Server=localhost\\SQLEXPRESS;Database=AccountingDB;Trusted_Connection=True;TrustServerCertificate=True;");
             }
         }
 
@@ -117,7 +121,7 @@ namespace Accounting.Infrastructure
             });
 
             // =========================
-            // VẬT TƯ
+            // VẬT TƯ (đã tối giản mapping)
             // =========================
             b.Entity<VatTu>(e =>
             {
@@ -128,20 +132,17 @@ namespace Accounting.Infrastructure
                 e.HasIndex(x => x.Ma).IsUnique();
 
                 e.Property(x => x.Ten).HasColumnName("ten").HasMaxLength(200).IsRequired();
-                e.Property(x => x.KichThuoc).HasColumnName("kich_thuoc");
-                e.Property(x => x.LoaiGiay).HasColumnName("loai_giay");
-                e.Property(x => x.DinhLuongGsm).HasColumnName("dinh_luong_gsm");
-                e.Property(x => x.MauIn).HasColumnName("mau_in");
-                e.Property(x => x.GiaCong).HasColumnName("gia_cong");
 
                 e.Property(x => x.DonViTinhId).HasColumnName("don_vi_tinh_id");
                 e.HasOne<DonViTinh>().WithMany().HasForeignKey(x => x.DonViTinhId);
 
-                e.Property(x => x.NgayTao).HasColumnName("ngay_tao");
-                e.Property(x => x.NguoiTao).HasColumnName("nguoi_tao");
-                e.Property(x => x.NgayCapNhat).HasColumnName("ngay_cap_nhat");
-                e.Property(x => x.NguoiCapNhat).HasColumnName("nguoi_cap_nhat");
                 e.Property(x => x.DaXoa).HasColumnName("da_xoa").HasDefaultValue(false);
+                e.Property(x => x.NguongTon).HasColumnName("nguong_ton");
+
+                e.Property(x => x.IsThanhPham)
+  .HasColumnName("is_thanh_pham")
+  .HasDefaultValue(false)
+  .IsRequired();
             });
 
             // =========================
@@ -203,8 +204,6 @@ namespace Accounting.Infrastructure
                 e.HasIndex(x => x.SoCt).IsUnique();
 
                 e.Property(x => x.NhaCungCapId).HasColumnName("nha_cung_cap_id");
-                e.HasOne<NhaCungCap>().WithMany().HasForeignKey(x => x.NhaCungCapId);
-
                 e.Property(x => x.NgayDon).HasColumnName("ngay_don");
                 e.Property(x => x.TienTe).HasColumnName("tien_te");
                 e.Property(x => x.TyGia).HasColumnName("ty_gia").HasPrecision(9, 4).HasDefaultValue(1.0000m);
@@ -212,9 +211,12 @@ namespace Accounting.Infrastructure
                 e.Property(x => x.GhiChu).HasColumnName("ghi_chu");
                 e.Property(x => x.TrangThai).HasColumnName("trang_thai").HasMaxLength(20).HasDefaultValue("nhap");
 
-                e.Property(x => x.TienHang).HasColumnName("tien_hang").HasPrecision(18, 2);
-                e.Property(x => x.TienThue).HasColumnName("tien_thue").HasPrecision(18, 2);
-                e.Property(x => x.TongTien).HasColumnName("tong_tien").HasPrecision(18, 2);
+                // ➜ các tổng tiền: NOT NULL + default 0
+                e.Property(x => x.TienHang).HasColumnName("tien_hang").HasPrecision(18, 2).HasDefaultValue(0m);
+                e.Property(x => x.TienThue).HasColumnName("tien_thue").HasPrecision(18, 2).HasDefaultValue(0m);
+                e.Property(x => x.TongTien).HasColumnName("tong_tien").HasPrecision(18, 2).HasDefaultValue(0m);
+
+                e.HasOne<NhaCungCap>().WithMany().HasForeignKey(x => x.NhaCungCapId);
             });
 
             // ===== ĐƠN MUA DÒNG =====
@@ -225,7 +227,7 @@ namespace Accounting.Infrastructure
 
                 e.Property(x => x.DonMuaId).HasColumnName("don_mua_id");
                 e.HasOne<DonMua>()
-                    .WithMany(d => d.Dong)              // ✅ trỏ đúng collection navigation
+                    .WithMany(d => d.Dong)
                     .HasForeignKey(x => x.DonMuaId)
                     .OnDelete(DeleteBehavior.Cascade);
 
@@ -247,7 +249,107 @@ namespace Accounting.Infrastructure
                 e.Property(x => x.TienThue).HasColumnName("tien_thue").HasPrecision(18, 2);
                 e.Property(x => x.ThanhTien).HasColumnName("thanh_tien").HasPrecision(18, 2);
             });
+            // =========================
+            // ĐƠN BÁN (job in ấn)
+            // =========================
+            b.Entity<DonBan>(e =>
+            {
+                e.ToTable("don_ban");
+                e.HasKey(x => x.Id);
 
+                e.Property(x => x.SoCt).HasColumnName("so_ct").HasMaxLength(50).IsRequired();
+                e.HasIndex(x => x.SoCt).IsUnique();
+
+                e.Property(x => x.NgayDon).HasColumnName("ngay_don");
+                e.Property(x => x.KhachHangId).HasColumnName("khach_hang_id");
+                e.Property(x => x.KhoId).HasColumnName("kho_id");
+                e.Property(x => x.TrangThai).HasColumnName("trang_thai").HasMaxLength(30).HasDefaultValue("draft");
+
+                e.Property(x => x.TienHang).HasColumnName("tien_hang").HasColumnType("decimal(18,2)");
+                e.Property(x => x.TienChietKhau).HasColumnName("tien_ck").HasColumnType("decimal(18,2)");
+                e.Property(x => x.TienThue).HasColumnName("tien_thue").HasColumnType("decimal(18,2)");
+                e.Property(x => x.TongTien).HasColumnName("tong_tien").HasColumnType("decimal(18,2)");
+                e.Property(x => x.GhiChu).HasColumnName("ghi_chu").HasMaxLength(500);
+
+                e.Property(x => x.NgayTao).HasColumnName("ngay_tao");
+                e.Property(x => x.NguoiTao).HasColumnName("nguoi_tao");
+                e.Property(x => x.NgayCapNhat).HasColumnName("ngay_cap_nhat");
+                e.Property(x => x.NguoiCapNhat).HasColumnName("nguoi_cap_nhat");
+                e.Property(x => x.DaXoa).HasColumnName("da_xoa").HasDefaultValue(false);
+
+                e.HasMany(x => x.Dongs).WithOne().HasForeignKey(d => d.DonBanId);
+            });
+
+            b.Entity<DonBanDong>(e =>
+            {
+                e.ToTable("don_ban_dong");
+                e.HasKey(x => x.Id);
+
+                e.Property(x => x.DonBanId).HasColumnName("don_ban_id");
+                e.Property(x => x.SanPhamId).HasColumnName("san_pham_id");
+                e.Property(x => x.TenHang).HasColumnName("ten_hang").HasMaxLength(200).IsRequired();
+                e.Property(x => x.QuyCach).HasColumnName("quy_cach").HasMaxLength(500);
+                e.Property(x => x.SpecJson).HasColumnName("spec_json"); // nvarchar(max)
+
+                e.Property(x => x.SoLuong).HasColumnName("so_luong").HasColumnType("decimal(18,3)");
+                e.Property(x => x.DonViTinh).HasColumnName("dvt").HasMaxLength(50);
+                e.Property(x => x.DonGia).HasColumnName("don_gia").HasColumnType("decimal(18,2)");
+
+                e.Property(x => x.TienHang).HasColumnName("tien_hang").HasColumnType("decimal(18,2)");
+                e.Property(x => x.TienChietKhau).HasColumnName("tien_ck").HasColumnType("decimal(18,2)");
+                e.Property(x => x.ThueSuat).HasColumnName("thue_suat").HasColumnType("decimal(9,4)");
+                e.Property(x => x.TienThue).HasColumnName("tien_thue").HasColumnType("decimal(18,2)");
+                e.Property(x => x.ThanhTien).HasColumnName("thanh_tien").HasColumnType("decimal(18,2)");
+
+                e.Property(x => x.DaXoa).HasColumnName("da_xoa").HasDefaultValue(false);
+
+                e.HasIndex(x => new { x.DonBanId, x.TenHang });
+            });
+            b.Entity<HoaDonBan>(e =>
+            {
+                e.ToTable("hoa_don_ban");
+                e.HasKey(x => x.Id);
+
+                e.Property(x => x.SoHoaDon).HasColumnName("so_hoa_don").HasMaxLength(50).IsRequired();
+                e.HasIndex(x => x.SoHoaDon).IsUnique();
+
+                e.Property(x => x.NgayHoaDon).HasColumnName("ngay_hoa_don");
+                e.Property(x => x.DonBanId).HasColumnName("don_ban_id");
+
+                e.Property(x => x.TienHang).HasColumnName("tien_hang").HasColumnType("decimal(18,2)");
+                e.Property(x => x.TienThue).HasColumnName("tien_thue").HasColumnType("decimal(18,2)");
+                e.Property(x => x.TongTien).HasColumnName("tong_tien").HasColumnType("decimal(18,2)");
+
+                e.Property(x => x.TrangThai).HasColumnName("trang_thai").HasMaxLength(20).HasDefaultValue("draft");
+
+                e.Property(x => x.NgayTao).HasColumnName("ngay_tao");
+                e.Property(x => x.NguoiTao).HasColumnName("nguoi_tao");
+                e.Property(x => x.NgayCapNhat).HasColumnName("ngay_cap_nhat");
+                e.Property(x => x.NguoiCapNhat).HasColumnName("nguoi_cap_nhat");
+                e.Property(x => x.DaXoa).HasColumnName("da_xoa").HasDefaultValue(false);
+
+                e.HasMany(x => x.Dongs).WithOne().HasForeignKey(d => d.HoaDonBanId);
+            });
+
+            b.Entity<HoaDonBanDong>(e =>
+            {
+                e.ToTable("hoa_don_ban_dong");
+                e.HasKey(x => x.Id);
+
+                e.Property(x => x.HoaDonBanId).HasColumnName("hoa_don_ban_id");
+                e.Property(x => x.TenHang).HasColumnName("ten_hang").HasMaxLength(200);
+                e.Property(x => x.QuyCach).HasColumnName("quy_cach").HasMaxLength(500);
+                e.Property(x => x.DonViTinh).HasColumnName("dvt").HasMaxLength(50);
+                e.Property(x => x.SoLuong).HasColumnName("so_luong").HasColumnType("decimal(18,3)");
+                e.Property(x => x.DonGia).HasColumnName("don_gia").HasColumnType("decimal(18,2)");
+
+                e.Property(x => x.TienHang).HasColumnName("tien_hang").HasColumnType("decimal(18,2)");
+                e.Property(x => x.TienThue).HasColumnName("tien_thue").HasColumnType("decimal(18,2)");
+                e.Property(x => x.ThanhTien).HasColumnName("thanh_tien").HasColumnType("decimal(18,2)");
+                e.Property(x => x.ThueSuat).HasColumnName("thue_suat").HasColumnType("decimal(9,4)");
+
+                e.Property(x => x.DaXoa).HasColumnName("da_xoa").HasDefaultValue(false);
+            });
             // ===== PHIẾU NHẬP =====
             b.Entity<PhieuNhap>(e =>
             {
@@ -281,8 +383,50 @@ namespace Accounting.Infrastructure
 
                 e.Property(x => x.PhieuNhapId).HasColumnName("phieu_nhap_id");
                 e.HasOne<PhieuNhap>()
-                    .WithMany(p => p.Dong)              // ✅ trỏ đúng collection navigation
+                    .WithMany(p => p.Dong)
                     .HasForeignKey(x => x.PhieuNhapId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                e.Property(x => x.VatTuId).HasColumnName("vat_tu_id");
+                e.HasOne<VatTu>().WithMany().HasForeignKey(x => x.VatTuId);
+
+                e.Property(x => x.SoLo).HasColumnName("so_lo");
+                e.Property(x => x.SoLuong).HasColumnName("so_luong").HasPrecision(18, 3);
+                e.Property(x => x.DonGia).HasColumnName("don_gia").HasPrecision(18, 2);
+                e.Property(x => x.GiaTri).HasColumnName("gia_tri").HasPrecision(18, 2);
+            });
+            // ===== PHIẾU XUẤT =====
+            b.Entity<PhieuXuat>(e =>
+            {
+                e.ToTable("phieu_xuat");
+                e.HasKey(x => x.Id);
+
+                e.Property(x => x.SoCt).HasColumnName("so_ct").HasMaxLength(50).IsRequired();
+                e.HasIndex(x => x.SoCt).IsUnique();
+
+                e.Property(x => x.KhoId).HasColumnName("kho_id");
+                e.HasOne<Kho>().WithMany().HasForeignKey(x => x.KhoId);
+
+                e.Property(x => x.LenhSanXuatId).HasColumnName("lenh_san_xuat_id");
+                e.HasOne<LenhSanXuat>().WithMany().HasForeignKey(x => x.LenhSanXuatId);
+
+                e.Property(x => x.NgayXuat).HasColumnName("ngay_xuat");
+                e.Property(x => x.GhiChu).HasColumnName("ghi_chu");
+
+                e.Property(x => x.NgayTao).HasColumnName("ngay_tao");
+                e.Property(x => x.NguoiTao).HasColumnName("nguoi_tao");
+            });
+
+            // ===== PHIẾU XUẤT DÒNG =====
+            b.Entity<PhieuXuatDong>(e =>
+            {
+                e.ToTable("phieu_xuat_dong");
+                e.HasKey(x => x.Id);
+
+                e.Property(x => x.PhieuXuatId).HasColumnName("phieu_xuat_id");
+                e.HasOne<PhieuXuat>()
+                    .WithMany(p => p.Dong)
+                    .HasForeignKey(x => x.PhieuXuatId)
                     .OnDelete(DeleteBehavior.Cascade);
 
                 e.Property(x => x.VatTuId).HasColumnName("vat_tu_id");
@@ -328,7 +472,7 @@ namespace Accounting.Infrastructure
 
                 e.Property(x => x.HoaDonMuaId).HasColumnName("hoa_don_mua_id");
                 e.HasOne<HoaDonMua>()
-                    .WithMany(h => h.Dong)              // ✅ trỏ đúng collection navigation
+                    .WithMany(h => h.Dong)
                     .HasForeignKey(x => x.HoaDonMuaId)
                     .OnDelete(DeleteBehavior.Cascade);
 
@@ -344,6 +488,73 @@ namespace Accounting.Infrastructure
                 e.Property(x => x.TienThue).HasColumnName("tien_thue").HasPrecision(18, 2);
                 e.Property(x => x.ThanhTien).HasColumnName("thanh_tien").HasPrecision(18, 2);
             });
+            b.Entity<LenhSanXuat>(e =>
+            {
+                e.ToTable("lenh_san_xuat");
+                e.HasKey(x => x.Id);
+                e.Property(x => x.Id).HasColumnName("id");
+                e.Property(x => x.Ma).HasColumnName("ma").HasMaxLength(50).IsRequired();
+                e.HasIndex(x => x.Ma).IsUnique();
+
+                e.Property(x => x.NgayLenh).HasColumnName("ngay_lenh");
+                e.Property(x => x.SanPhamId).HasColumnName("san_pham_id");
+                e.HasOne(x => x.SanPham).WithMany().HasForeignKey(x => x.SanPhamId)
+                    .OnDelete(DeleteBehavior.Restrict);
+
+                e.Property(x => x.SoLuongKeHoach).HasColumnName("so_luong_ke_hoach").HasPrecision(18, 3);
+                e.Property(x => x.SoLuongThucTe).HasColumnName("so_luong_thuc_te").HasPrecision(18, 3);
+
+                // ===== ngành in
+                e.Property(x => x.TenKhachHang).HasColumnName("ten_khach_hang").HasMaxLength(255);
+                e.Property(x => x.TenBaiIn).HasColumnName("ten_bai_in").HasMaxLength(255);
+                e.Property(x => x.TenGiayIn).HasColumnName("ten_giay_in").HasMaxLength(255);
+                e.Property(x => x.KhoIn).HasColumnName("kho_in").HasMaxLength(50);
+                e.Property(x => x.SoMauIn).HasColumnName("so_mau_in");
+                e.Property(x => x.HinhThucIn).HasColumnName("hinh_thuc_in").HasMaxLength(50);
+                e.Property(x => x.SoCon).HasColumnName("so_con");
+                e.Property(x => x.MayIn).HasColumnName("may_in").HasMaxLength(100);
+                e.Property(x => x.NgayIn).HasColumnName("ngay_in");
+                e.Property(x => x.SoLuongThanhPham).HasColumnName("so_luong_thanh_pham").HasPrecision(18, 3);
+
+                // meta
+                e.Property(x => x.TrangThai).HasColumnName("trang_thai").HasMaxLength(20);
+                e.Property(x => x.GhiChu).HasColumnName("ghi_chu").HasMaxLength(500);
+                e.Property(x => x.NgayTao).HasColumnName("ngay_tao");
+                e.Property(x => x.NgayCapNhat).HasColumnName("ngay_cap_nhat");
+                e.Property(x => x.DaXoa).HasColumnName("da_xoa");
+
+                e.HasMany(x => x.Dongs).WithOne(d => d.Lenh)
+                    .HasForeignKey(d => d.LenhId)
+                    .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            // ===== LenhSanXuatDong
+            b.Entity<LenhSanXuatDong>(e =>
+            {
+                e.ToTable("lenh_san_xuat_dong");
+                e.HasKey(x => x.Id);
+                e.Property(x => x.Id).HasColumnName("id");
+
+                e.Property(x => x.LenhId).HasColumnName("lenh_id");
+                e.Property(x => x.VatTuId).HasColumnName("vat_tu_id");
+                e.HasOne(x => x.VatTu)
+                 .WithMany()
+                 .HasForeignKey(x => x.VatTuId)
+                 .OnDelete(DeleteBehavior.Restrict);
+
+                e.Property(x => x.LoaiDong).HasColumnName("loai_dong").HasMaxLength(20);
+                e.Property(x => x.HeSo).HasColumnName("he_so").HasPrecision(18, 6);
+                e.Property(x => x.SoLuong).HasColumnName("so_luong").HasPrecision(18, 3);
+                e.Property(x => x.DonGia).HasColumnName("don_gia").HasPrecision(18, 3);
+                e.Property(x => x.GiaTri).HasColumnName("gia_tri").HasPrecision(18, 3);
+
+                e.Property(x => x.GhiChu).HasColumnName("ghi_chu").HasMaxLength(255);
+                e.Property(x => x.DaXoa).HasColumnName("da_xoa");
+
+                e.HasIndex(x => new { x.LenhId, x.LoaiDong });
+                e.HasIndex(x => x.VatTuId);
+            });
+
         }
     }
 }

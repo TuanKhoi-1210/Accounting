@@ -2,9 +2,9 @@
 {
     public class PhieuNhapDong
     {
-        public int Id { get; set; }
-        public int? PhieuNhapId { get; set; }
-        public int? VatTuId { get; set; }
+        public long Id { get; set; }
+        public long? PhieuNhapId { get; set; }
+        public long? VatTuId { get; set; }
 
         public string? SoLo { get; set; }
         public decimal SoLuong { get; set; }

@@ -1,22 +1,27 @@
-﻿namespace Accounting.Domain.Entities
+﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
+
+namespace Accounting.Domain.Entities
 {
+    [Table("vat_tu", Schema = "acc")]
     public class VatTu
     {
-        public int Id { get; set; }
+        [Key]
+        public long Id { get; set; }                // DB hiện dùng long IDENTITY
+
+        [Required, MaxLength(50)]
         public string Ma { get; set; } = null!;
+
+        [Required, MaxLength(200)]
         public string Ten { get; set; } = null!;
-        public string? KichThuoc { get; set; }
-        public string? LoaiGiay { get; set; }
-        public string? DinhLuongGsm { get; set; }
-        public string? MauIn { get; set; }
-        public string? GiaCong { get; set; }
 
-        public int? DonViTinhId { get; set; }
+        public long? DonViTinhId { get; set; }
 
-        public DateTime? NgayTao { get; set; }
-        public string? NguoiTao { get; set; }
-        public DateTime? NgayCapNhat { get; set; }
-        public string? NguoiCapNhat { get; set; }
+        public decimal? NguongTon { get; set; }
+
         public bool DaXoa { get; set; }
+
+        [Column("is_thanh_pham")]
+        public bool IsThanhPham { get; set; } = false;
     }
 }

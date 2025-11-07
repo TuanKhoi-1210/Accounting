@@ -100,298 +100,1456 @@
                                     `;
         }
         /* ====== MUA HÀNG: DANH SÁCH ====== */
+        /* ====== MUA HÀNG: DANH SÁCH ====== */
         function renderPurchaseList() {
             app.innerHTML = `
-            <div class="page-header">
-              <div>
-                <h2>🛒 Mua hàng</h2>
-                <p class="muted">Quản lý đơn mua, hợp đồng & nhập hàng</p>
-              </div>
-              <div class="actions">
-                <button class="btn primary" id="btnCreatePO">+ Tạo đơn mua</button>
-              </div>
-            </div>
+    <div class="page-header">
+      <div>
+        <h2>🛒 Mua hàng</h2>
+        <p class="muted">Quản lý đơn mua, hợp đồng & nhập hàng</p>
+      </div>
+      <div class="actions">
+        <button class="btn primary" id="btnCreatePO">+ Tạo đơn mua</button>
+      </div>
+    </div>
 
-            <div class="toolbar">
-              <input class="input" placeholder="Tìm theo mã đơn / nhà cung cấp..." />
-              <select class="input">
-                <option>Tất cả trạng thái</option>
-                <option>nhap</option>
-                <option>hoan_thanh</option>
-              </select>
-              <div class="spacer"></div>
-              <button class="btn" id="btnReload">Tải lại</button>
-            </div>
+    <div class="toolbar">
+      <input id="poSearch" class="input" placeholder="Tìm theo mã đơn / nhà cung cấp..." />
+      <select id="poStatus" class="input">
+        <option value="">Tất cả trạng thái</option>
+        <option value="draft">Chờ duyệt</option>
+        <option value="approved">Đã duyệt</option>
+        <option value="partial">Đang nhập</option>
+        <option value="received">Hoàn thành</option>
+      </select>
+      <div class="spacer"></div>
+      <button class="btn" id="btnReload">Tải lại</button>
+    </div>
 
-            <div class="card">
-              <div class="table-wrap">
-                <table class="table">
-                  <thead>
-                    <tr>
-                      <th>Mã đơn</th><th>Nhà cung cấp (ID)</th><th>Ngày</th>
-                      <th>Giá trị</th><th>Trạng thái</th><th></th>
-                    </tr>
-                  </thead>
-                  <tbody id="poBody">
-                    <tr><td colspan="6" class="empty">Đang tải…</td></tr>
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          `;
+    <div class="card">
+      <div class="table-wrap">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Mã đơn</th>
+              <th>Nhà cung cấp</th>
+              <th>Ngày</th>
+              <th>Giá trị</th>
+              <th>Trạng thái</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="poBody">
+            <tr><td colspan="6" class="empty">Đang tải…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  `;
 
+            // điều hướng
             document.getElementById("btnCreatePO").addEventListener("click", renderPurchaseCreate);
             document.getElementById("btnReload").addEventListener("click", loadPOs);
 
+            // helpers cục bộ
+            const fmtMoney = n => (n || 0).toLocaleString("vi-VN", { style: "currency", currency: "VND" });
+            const fmtDate = s => {
+                if (!s) return "";
+                const d = new Date(s);
+                return `${d.getDate()}/${d.getMonth() + 1}/${d.getFullYear()}`;
+            };
+
+            // 🔧 thêm 2 helper TRẠNG THÁI (thiếu 2 hàm này sẽ lỗi không load)
+            const normalizeStatus = s => {
+                s = (s || "").toLowerCase();
+                if (s === "nhap") return "draft";               // legacy: mới nhập đơn
+                if (s === "hoan_thanh") return "received";      // legacy: hoàn thành
+                if (s === "da_duyet") return "approved";
+                if (s === "dang_nhap") return "partial";
+                return s; // draft/approved/partial/received/cancelled...
+            };
+            const statusLabel = code => ({
+                draft: "Chờ duyệt",
+                approved: "Đã duyệt",
+                partial: "Đang nhập",
+                received: "Hoàn thành",
+                cancelled: "Hủy"
+            }[code] || "");
+
+            // state tại chỗ
+            let _rows = [];
+            let _nccMap = new Map(); // id -> tên
+
+            // filter UI
+            document.getElementById("poSearch").addEventListener("input", renderRows);
+            document.getElementById("poStatus").addEventListener("change", renderRows);
+
+            // load ngay lần đầu
             loadPOs();
 
             async function loadPOs() {
                 const body = document.getElementById('poBody');
                 body.innerHTML = `<tr><td colspan="6" class="empty">Đang tải…</td></tr>`;
-                const rows = await api("listDonMua"); // gọi C#
-                if (!rows || rows.length === 0) {
+                try {
+                    const poList = await api("listDonMua");
+                    const nccResp = await api("getNhaCungCap");
+
+                    const nccArr = (nccResp && Array.isArray(nccResp.ncc)) ? nccResp.ncc : [];
+                    _nccMap = new Map(nccArr.map(x => [(x.id ?? x.Id), (x.ten ?? x.Ten)]));
+
+                    _rows = Array.isArray(poList) ? poList : [];
+                    renderRows();
+                } catch (err) {
+                    console.error(err);
+                    body.innerHTML = `<tr><td colspan="6" class="empty error">Không tải được dữ liệu.</td></tr>`;
+                }
+            }
+
+            function renderRows() {
+                const body = document.getElementById('poBody');
+                if (!_rows || _rows.length === 0) {
                     body.innerHTML = `<tr><td colspan="6" class="empty">Chưa có đơn mua</td></tr>`;
                     return;
                 }
-                body.innerHTML = rows.map(r => `
-              <tr>
-                <td>${r.SoCt}</td>
-                <td>${r.NhaCungCapId ?? ''}</td>
-                <td>${fmtDate(r.ngayDon)}</td>
-                <td>${fmtMoney(r.tongTien || 0)}</td>
-                <td><span class="badge">${r.trangThai || ''}</span></td>
-                <td><button class="btn link" data-id="${r.id}">Xem</button></td>
-              </tr>
-            `).join('');
+
+                const q = (document.getElementById("poSearch").value || "").toLowerCase();
+                const st = document.getElementById("poStatus").value || "";
+
+                const filtered = _rows.filter(r => {
+                    const so = (r.soCt ?? r.SoCt ?? "").toLowerCase();
+                    const tenNcc = (_nccMap.get(r.nhaCungCapId ?? r.NhaCungCapId) || "").toLowerCase();
+                    const code = normalizeStatus(r.trangThai ?? r.TrangThai);
+                    const okSearch = !q || so.includes(q) || tenNcc.includes(q);
+                    const okSt = !st || code === st;
+                    return okSearch && okSt;
+                });
+
+                if (filtered.length === 0) {
+                    body.innerHTML = `<tr><td colspan="6" class="empty">Không có kết quả</td></tr>`;
+                    return;
+                }
+
+                body.innerHTML = filtered.map(r => {
+                    const id = r.id ?? r.Id;
+                    const so = r.soCt ?? r.SoCt ?? "";
+                    const nccName = _nccMap.get(r.nhaCungCapId ?? r.NhaCungCapId) || "";
+                    const ngay = fmtDate(r.ngayDon ?? r.NgayDon);
+                    const tong = fmtMoney(r.tongTien ?? r.TongTien ?? 0);
+                    const code = normalizeStatus(r.trangThai ?? r.TrangThai);
+                    const sttText = statusLabel(code);
+                    return `
+        <tr>
+          <td>${so}</td>
+          <td>${nccName}</td>
+          <td>${ngay}</td>
+          <td>${tong}</td>
+          <td><span class="badge">${sttText}</span></td>
+          <td><button class="btn link btnView" data-id="${id}">Xem</button></td>
+        </tr>
+      `;
+                }).join('');
+
+                body.querySelectorAll('.btnView').forEach(b => {
+                    b.addEventListener('click', () => {
+                        const id = Number(b.dataset.id);
+                        if (typeof renderPurchaseDetail === "function") {
+                            renderPurchaseDetail(id);
+                        } else {
+                            alert("Chức năng xem chi tiết chưa được khai báo.");
+                        }
+                    });
+                });
             }
         }
 
-        /* ====== MUA HÀNG: TẠO ĐƠN ====== */
-        // ===== Helpers: gửi/nhận message với .NET một lần (1 request - 1 response) =====
-        function sendToDotnet(payload) {
-            window.chrome?.webview?.postMessage(payload);
+
+
+        /* ====== MUA HÀNG: CHI TIẾT ĐƠN ====== */
+        /* ====== MUA HÀNG: CHI TIẾT ĐƠN ====== */
+        /* ====== MUA HÀNG: CHI TIẾT ĐƠN ====== */
+        /* ====== MUA HÀNG: CHI TIẾT ĐƠN ====== */
+        async function renderPurchaseDetail(id) {
+            const fmtMoney = n => (n || 0).toLocaleString("vi-VN", { style: "currency", currency: "VND" });
+            const fmtDate = s => {
+                if (!s) return "";
+                const d = new Date(s);
+                return d.toLocaleDateString("vi-VN");
+            };
+
+            // ----- tải header PO -----
+            const data = await api("getDonMuaDetail", { id });
+            if (!data || data.error) { alert("Không tải được chi tiết đơn."); return renderPurchaseList(); }
+
+            const statusCode = (data.trangThai ?? "").toLowerCase();
+
+            // ----- lịch sử PN (khi partial/received) -----
+            let grns = [];
+            if (statusCode === "partial" || statusCode === "received") {
+                try {
+                    const rs = await api("listPnByPo", { poId: id });
+                    grns = Array.isArray(rs) ? rs : (rs?.list || []);
+                } catch (e) { console.warn("listPnByPo error:", e); }
+            }
+
+            // ----- lịch sử Hóa đơn mua -----
+            let invoices = [];
+            try {
+                const rs = await api("listHdByPo", { poId: id });
+                invoices = Array.isArray(rs) ? rs : (rs?.list || []);
+            } catch (e) { console.warn("listHdByPo error:", e); }
+
+            // Đã có hóa đơn? (ưu tiên trường backend trả về, fallback theo danh sách)
+            const alreadyHasInvoice = (typeof data.hasInvoice !== "undefined") ? !!data.hasInvoice : (invoices.length > 0);
+
+            // Điều kiện tạo PN: approved/partial
+            const canCreatePN = (statusCode === "approved" || statusCode === "partial");
+
+            // Điều kiện tạo HĐ: approved/partial/received và CHƯA có hóa đơn
+            const canCreateInvoice = (statusCode === "approved" || statusCode === "partial" || statusCode === "received") && !alreadyHasInvoice;
+
+            // ----- header -----
+            const header = `
+  <div class="page-header">
+    <div>
+      <h2>📄 Đơn mua: ${data.soCt}</h2>
+      <p class="muted">
+        NCC: <strong>${data.nhaCungCapTen || ""}</strong> • Ngày: ${fmtDate(data.ngayDon)} •
+        Trạng thái: <span class="badge">${data.trangThai || ""}</span>
+        ${typeof data.invoiceCount !== "undefined" ? ` • Hóa đơn: <b>${data.invoiceCount}</b>` : ""}
+      </p>
+    </div>
+    <div class="actions">
+      <button class="btn" id="btnBack">← Danh sách</button>
+      ${((statusCode === "draft") || (statusCode === "nhap"))
+                    ? `<button class="btn primary" id="btnPostPO">Ghi sổ</button>`
+                    : `<button class="btn" disabled title="Đã duyệt">Ghi sổ</button>`}
+    </div>
+  </div>`;
+
+            // ----- bảng dòng hàng của PO -----
+            const linesHtml = (data.lines || []).map((d, i) => `
+    <tr>
+      <td>${i + 1}</td>
+      <td>${d.vatTuMa || ""}</td>
+      <td>${d.vatTuTen || ""}</td>
+      <td>${d.dvtTen || ""}</td>
+      <td class="right">${(d.soLuong ?? 0).toLocaleString("vi-VN")}</td>
+      <td class="right">${fmtMoney(d.donGia || 0)}</td>
+      <td>${d.thueTen || ""}</td>
+      <td class="right">${fmtMoney(d.thanhTien || 0)}</td>
+    </tr>
+  `).join("");
+
+            // ----- card lịch sử PN -----
+            const grnCard = (statusCode === "partial" || statusCode === "received") ? `
+    <div class="card">
+      <header class="card-title">📥 Lịch sử nhập từ đơn này</header>
+      <div class="table-wrap">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Mã PN</th><th>Ngày nhận</th><th class="right">Giá trị</th><th class="right">Số dòng</th><th></th>
+            </tr>
+          </thead>
+          <tbody>
+            ${(grns.length > 0)
+                    ? grns.map(g => `
+                <tr>
+                  <td>${g.soCt}</td>
+                  <td>${fmtDate(g.ngayNhap)}</td>
+                  <td class="right">${fmtMoney(g.giaTri || 0)}</td>
+                  <td class="right">${g.soDong || 0}</td>
+                  <td><button class="btn link" data-pn="${g.id}">Xem</button></td>
+                </tr>`).join("")
+                    : `<tr><td colspan="5" class="empty">Chưa có phiếu nhập.</td></tr>`}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  ` : "";
+
+            // ----- card lịch sử Hóa đơn mua -----
+            const hdCard = `
+    <div class="card">
+      <header class="card-title">🧾 Hóa đơn mua của đơn này</header>
+      <div class="table-wrap">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Số HĐ</th><th>Ngày HĐ</th><th>Hạn TT</th><th class="right">Tổng tiền</th><th>Trạng thái</th><th></th>
+            </tr>
+          </thead>
+          <tbody>
+            ${invoices.length > 0
+                    ? invoices.map(h => `
+                <tr>
+                  <td>${h.soCt}</td>
+                  <td>${fmtDate(h.ngayHoaDon)}</td>
+                  <td>${fmtDate(h.hanThanhToan)}</td>
+                  <td class="right">${fmtMoney(h.tongTien || 0)}</td>
+                  <td>${h.trangThai || ""}</td>
+                  <td><button class="btn link" data-hd="${h.id}">Xem</button></td>
+                </tr>`).join("")
+                    : `<tr><td colspan="6" class="empty">Chưa có hóa đơn mua.</td></tr>`}
+          </tbody>
+        </table>
+      </div>
+      <div class="form-actions">
+        ${canCreateInvoice
+                    ? `<button class="btn primary" id="btnMakeHD">+ Tạo Hóa đơn mua</button>`
+                    : `<button class="btn" disabled style="opacity:.5;cursor:not-allowed"
+               title="${alreadyHasInvoice ? 'Đã có hóa đơn cho đơn này' : 'Chỉ tạo khi đơn đã duyệt/đang nhập/hoàn thành'}">+ Tạo Hóa đơn mua</button>`}
+      </div>
+    </div>
+  `;
+
+            // ----- nút tạo PN -----
+            const createPnBtnHtml = canCreatePN
+                ? `<button class="btn primary" id="btnMakePN">+ Tạo Phiếu nhập</button>`
+                : `<button class="btn" disabled style="opacity:.4;cursor:not-allowed" title="Chỉ tạo Phiếu nhập khi đơn đã duyệt">+ Tạo Phiếu nhập</button>`;
+
+            // ----- render tổng thể -----
+            app.innerHTML = `
+    ${header}
+
+    <div class="card">
+      <header class="card-title">Dòng hàng</header>
+      <div class="table-wrap">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>#</th><th>Mã hàng</th><th>Tên hàng</th><th>ĐVT</th>
+              <th class="right">SL</th><th class="right">Đơn giá</th>
+              <th>Thuế</th><th class="right">Thành tiền</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${linesHtml || `<tr><td colspan="8" class="empty">Chưa có dòng hàng</td></tr>`}
+          </tbody>
+        </table>
+      </div>
+
+      <div class="grid form-grid totals" style="margin-top:12px">
+        <label class="field"><span>Tiền hàng</span><input class="input strong" value="${fmtMoney(data.tienHang || 0)}" disabled /></label>
+        <label class="field"><span>Tiền thuế</span><input class="input strong" value="${fmtMoney(data.tienThue || 0)}" disabled /></label>
+        <label class="field"><span>Tổng tiền</span><input class="input strong" value="${fmtMoney(data.tongTien || 0)}" disabled /></label>
+      </div>
+
+      ${data.ghiChu ? `<div class="muted" style="margin-top:8px">Ghi chú: ${data.ghiChu}</div>` : ""}
+    </div>
+
+    ${grnCard}
+    ${hdCard}
+
+    <div class="card">
+      <div class="btn-group">
+        ${createPnBtnHtml}
+      </div>
+    </div>
+  `;
+
+            // ----- events -----
+            document.getElementById("btnBack").addEventListener("click", renderPurchaseList);
+
+            const btnPn = document.getElementById("btnMakePN");
+            if (btnPn && !btnPn.disabled) {
+                btnPn.addEventListener("click", () => gotoGrnCreateFromPo(data.id));
+            }
+
+            const postBtn = document.getElementById("btnPostPO");
+            if (postBtn) {
+                postBtn.addEventListener("click", async () => {
+                    try {
+                        const res = await api("postGhiSoPO", { id: data.id });
+                        if (res?.error) { alert("Ghi sổ lỗi: " + res.error); return; }
+                        renderPurchaseDetail(data.id);
+                    } catch (e) {
+                        console.error(e);
+                        alert("Lỗi ghi sổ: " + (e?.message || e));
+                    }
+                });
+            }
+
+            // xem PN
+            document.querySelectorAll('[data-pn]').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const pnId = +btn.getAttribute('data-pn');
+                    renderGrnDetail(pnId);
+                });
+            });
+
+            // tạo HD
+            const btnHd = document.getElementById("btnMakeHD");
+            if (btnHd && !btnHd.disabled) {
+                btnHd.addEventListener("click", () => {
+                    if (typeof renderHdCreateFromPo === "function") {
+                        renderHdCreateFromPo(data.id); // màn tạo HĐ mua từ PO
+                    } else {
+                        alert("Chức năng tạo Hóa đơn mua chưa sẵn sàng (thiếu renderHdCreateFromPo).");
+                    }
+                });
+            }
+
+            // xem HD
+            document.querySelectorAll('[data-hd]').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const hdId = +btn.getAttribute('data-hd');
+                    if (typeof renderHdDetail === "function") {
+                        renderHdDetail(hdId);
+                    } else {
+                        alert("Chức năng xem chi tiết Hóa đơn mua chưa sẵn sàng (thiếu renderHdDetail).");
+                    }
+                });
+            });
         }
 
-        function apiOnce(cmd, data, timeoutMs = 8000) {
-            return new Promise((resolve, reject) => {
-                // Lắng nghe duy nhất lần đầu server trả lời (one-shot)
-                const handler = (e) => {
-                    let resp = e.data;
-                    try { resp = typeof resp === 'string' ? JSON.parse(resp) : resp; } catch { }
-                    window.chrome?.webview?.removeEventListener('message', handler);
-                    if (resp && resp.error) return reject(resp.error);
-                    resolve(resp);
-                };
-                window.chrome?.webview?.addEventListener('message', handler);
+        async function gotoGrnCreateFromPo(poId) {
+            try {
+                const { draft } = await api("getGrnDraftFromPO", { PoId: poId });
+                if (!draft) { alert("Không lấy được dữ liệu nháp Phiếu nhập."); return; }
+                renderGrnCreate(draft);
+            } catch (e) {
+                alert("Lỗi lấy nháp Phiếu nhập: " + (e?.message || e));
+                console.error(e);
+            }
+        }
+        async function renderGrnDetail(pnId) {
+            const fmtMoney = n => (n || 0).toLocaleString("vi-VN", { style: "currency", currency: "VND" });
+            const fmtDateTime = s => {
+                if (!s) return "";
+                const d = new Date(s);
+                return d.toLocaleString("vi-VN");
+            };
 
-                // Timeout để tránh treo
-                const t = setTimeout(() => {
-                    try { window.chrome?.webview?.removeEventListener('message', handler); } catch { }
-                    reject("Hết thời gian chờ phản hồi backend (timeout).");
-                }, timeoutMs);
+            const rs = await api("getGrnDetail", { pnId });
+            if (!rs || rs.error) { alert("Không tải được chi tiết phiếu nhập."); return; }
 
-                // Gửi cmd
+            const lines = rs.lines || []; // <— camelCase
+            const linesHtml = lines.map((d, i) => `
+    <tr>
+      <td>${i + 1}</td>
+      <td>${d.vatTuMa || ""}</td>
+      <td>${d.vatTuTen || ""}</td>
+      <td>${d.dvtTen || ""}</td>
+      <td class="right">${(d.soLuong ?? 0).toLocaleString("vi-VN")}</td>
+      <td class="right">${fmtMoney(d.donGia || 0)}</td>
+      <td class="right">${fmtMoney(d.giaTri || (d.soLuong || 0) * (d.donGia || 0))}</td>
+    </tr>
+  `).join("");
+
+            app.innerHTML = `
+    <div class="page-header">
+      <div>
+        <h2>📥 Phiếu nhập: ${rs.soCt || ""}</h2>
+        <p class="muted">
+          Ngày nhận: <b>${fmtDateTime(rs.ngayNhap)}</b>
+          ${rs.khoTen ? ` • Kho: <b>${rs.khoTen}</b>` : ""}
+          ${rs.nccTen ? ` • NCC: <b>${rs.nccTen}</b>` : ""}
+          ${rs.donMuaId ? ` • Thuộc Đơn mua: <b>${rs.donMuaId}</b>` : ""}
+        </p>
+      </div>
+      <div class="actions">
+        ${rs.donMuaId
+                    ? `<button class="btn" id="btnBackToPO">← Về đơn mua</button>`
+                    : `<button class="btn" id="btnBack">← Quay lại</button>`}
+      </div>
+    </div>
+
+    <div class="card">
+      <header class="card-title">Dòng hàng</header>
+      <div class="table-wrap">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>#</th><th>Mã hàng</th><th>Tên hàng</th><th>ĐVT</th>
+              <th class="right">SL nhập</th><th class="right">Đơn giá</th><th class="right">Giá trị</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${linesHtml || `<tr><td colspan="7" class="empty">Không có dòng hàng.</td></tr>`}
+          </tbody>
+        </table>
+      </div>
+
+      <div class="grid form-grid totals" style="margin-top:12px">
+        <label class="field"><span>Tổng giá trị</span>
+          <input class="input strong" value="${fmtMoney(rs.tongGiaTri || 0)}" disabled />
+        </label>
+      </div>
+
+      ${rs.ghiChu ? `<div class="muted" style="margin-top:8px">Ghi chú: ${rs.ghiChu}</div>` : ""}
+    </div>
+  `;
+
+            const backBtn = document.getElementById("btnBackToPO") || document.getElementById("btnBack");
+            if (backBtn) {
+                backBtn.addEventListener("click", () => {
+                    if (rs.donMuaId) renderPurchaseDetail(rs.donMuaId);
+                    else renderInventoryList();
+                });
+            }
+        }
+
+
+
+        // ===== Màn tạo Phiếu nhập (prefill từ draft) =====
+        function renderGrnCreate(draft) {
+            const fmt = n => (n || 0).toLocaleString("vi-VN");
+            const fmtMoney = n => (n || 0).toLocaleString("vi-VN", { style: "currency", currency: "VND" });
+
+            // bảng dòng vật tư
+            const rows = (draft.lines || []).map((l, i) => `
+    <tr>
+      <td>${i + 1}</td>
+      <td>${l.itemCode}</td>
+      <td>${l.itemName}</td>
+      <td>${l.uom}</td>
+      <td class="right">${fmt(l.orderedQty)}</td>
+      <td class="right">${fmt(l.receivedQty)}</td>
+      <td class="right">${fmt(l.remainingQty)}</td>
+      <td>
+        <input class="input grn-qty" type="number" min="0" max="${l.remainingQty}" step="0.001"
+               value="${l.qty}" data-item="${l.itemId}">
+      </td>
+      <td>
+        <input class="input grn-price" type="number" min="0" step="0.01"
+               value="${l.unitCost}" data-item="${l.itemId}">
+      </td>
+      <td class="right">${l.taxRate ?? 0}%</td>
+    </tr>
+  `).join("");
+
+            app.innerHTML = `
+    <div class="page-header">
+      <div>
+        <h2>📥 Phiếu nhập - Tạo mới</h2>
+        <p class="muted">
+          Nguồn: từ Đơn mua <b>${draft.poId}</b> • NCC: <b>${draft.supplierName}</b>
+        </p>
+      </div>
+      <div class="actions">
+        <button class="btn" id="btnBackToPO">← Về đơn mua</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="grid form-grid">
+        <label class="field">
+          <span>Mã PN</span>
+          <div class="inline">
+            <input class="input" id="pn-code" value="${draft.suggestedPnCode}">
+            <button class="btn" id="btnRegenPn">↻</button>
+          </div>
+        </label>
+        <label class="field">
+          <span>Ngày nhận</span>
+          <input class="input" id="pn-date" type="datetime-local">
+        </label>
+        <label class="field">
+          <span>Nguồn</span>
+          <input class="input" id="pn-source" placeholder="Ví dụ: Mua hàng / Sản xuất / Trả lại">
+        </label>
+        <label class="field">
+          <span>Nhà cung cấp</span>
+          <input class="input" value="${draft.supplierName}" disabled>
+        </label>
+      </div>
+
+      <div class="table-wrap" style="margin-top:10px">
+        <table class="table compact">
+          <thead>
+            <tr>
+              <th>#</th><th>Mã</th><th>Tên</th><th>ĐVT</th>
+              <th class="right">Đặt</th><th class="right">Đã nhập</th><th class="right">Còn</th>
+              <th>SL nhập</th><th>Đơn giá</th><th class="right">Thuế</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rows || `<tr><td colspan="10" class="empty">Tất cả vật tư trong đơn đã nhập đủ.</td></tr>`}
+          </tbody>
+        </table>
+      </div>
+
+      <div class="form-actions">
+        <button class="btn primary" id="btnSaveGrn">Lưu phiếu nhập</button>
+        <button class="btn" id="btnCancelGrn">Hủy</button>
+      </div>
+    </div>
+  `;
+
+            // set datetime-local = now
+            const d = new Date(); // local
+            document.getElementById("pn-date").value =
+                new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+
+            // events
+            document.getElementById("btnBackToPO").addEventListener("click", () => renderPurchaseDetail(draft.poId));
+            document.getElementById("btnCancelGrn").addEventListener("click", () => renderPurchaseDetail(draft.poId));
+
+            // regen code: gọi lại API draft để xin mã gợi ý mới
+            document.getElementById("btnRegenPn").addEventListener("click", async () => {
+                const { draft: d2 } = await api("getGrnDraftFromPO", { PoId: draft.poId });
+                document.getElementById("pn-code").value = d2?.suggestedPnCode || document.getElementById("pn-code").value;
+            });
+
+            // lưu (tuỳ bạn đã có API createPhieuNhap chưa)
+            document.getElementById("btnSaveGrn").addEventListener("click", async () => {
+                const code = (document.getElementById("pn-code").value || "").trim();
+                const dateStr = document.getElementById("pn-date").value;
+                const source = (document.getElementById("pn-source").value || "").trim();
+
+                // gom dòng > 0
+                const qtyEls = [...document.querySelectorAll(".grn-qty")];
+                const priceEls = [...document.querySelectorAll(".grn-price")];
+                const priceMap = {};
+                priceEls.forEach(i => (priceMap[i.dataset.item] = parseFloat(i.value || "0")));
+
+                const lines = qtyEls
+                    .map(i => {
+                        const qty = parseFloat(i.value || "0");
+                        return { itemId: +i.dataset.item, qty: isNaN(qty) ? 0 : qty, unitCost: priceMap[i.dataset.item] ?? 0 };
+                    })
+                    .filter(x => x.qty > 0);
+
+                if (!code) { alert("Chưa có mã PN."); return; }
+                if (!dateStr) { alert("Chưa chọn ngày nhận."); return; }
+                if (lines.length === 0) { alert("Chưa nhập số lượng dòng nào."); return; }
+
                 try {
-                    sendToDotnet({ cmd, ...data });
+                    const payload = {
+                        poId: draft.poId,
+                        pnCode: code,
+                        receiptDate: new Date(dateStr).toISOString(),
+                        source,
+                        lines
+                    };
+
+                    const res = await api("createPhieuNhap", { phieuNhap: payload });
+                    if (res?.error) { alert("Lỗi lưu PN: " + res.error); return; }
+
+                    alert(`Đã lưu Phiếu nhập ${payload.pnCode}. Trạng thái PO: ${res.status}`);
+                    renderPurchaseDetail(draft.poId); // quay lại chi tiết PO để thấy trạng thái mới
                 } catch (err) {
-                    clearTimeout(t);
-                    try { window.chrome?.webview?.removeEventListener('message', handler); } catch { }
-                    reject("Không gửi được lệnh lên backend: " + err);
+                    console.error(err);
+                    alert("Lỗi lưu PN: " + (err?.message || err));
+                }
+            });
+        } // <-- đóng hàm renderGrnCreate
+
+        /* ====== MUA HÀNG → HÓA ĐƠN MUA: Tạo từ PO ====== */
+        async function renderHdCreateFromPo(poId) {
+            const fmtMoney = n => (n || 0).toLocaleString("vi-VN", { style: "currency", currency: "VND" });
+
+            // 1) Lấy nháp HĐ từ PO (CHÚ Ý: PoId)
+            const draftWrap = await api("getHdDraftFromPO", { PoId: poId });
+            const draft = draftWrap?.draft || draftWrap;
+            if (!draft) { alert("Không lấy được nháp Hóa đơn mua."); return; }
+
+            // helpers
+            const toISO = (localDate) => {
+                if (!localDate) return null;
+                const d = new Date(localDate);
+                return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString();
+            };
+            const ymd = dt => (new Date(dt)).toISOString().slice(0, 10);
+
+            // bảng dòng
+            const rows = (draft.lines || []).map((l, i) => `
+    <tr>
+      <td>${i + 1}</td>
+      <td>${l.itemCode || ""}</td>
+      <td>${l.itemName || ""}</td>
+      <td>${l.uom || ""}</td>
+      <td><input class="input hd-qty"   type="number" min="0" step="0.001" value="${l.qty ?? 0}" data-item="${l.itemId}"></td>
+      <td><input class="input hd-price" type="number" min="0" step="0.01"  value="${l.unitPrice ?? 0}" data-item="${l.itemId}"></td>
+      <td>
+        <select class="input hd-tax" data-item="${l.itemId}">
+          <option value="${l.thueSuatId ?? ""}">${(l.thueTen ?? (l.taxRate ?? 0) + "%")}</option>
+        </select>
+      </td>
+      <td class="right hd-line">${fmtMoney((l.qty || 0) * (l.unitPrice || 0))}</td>
+    </tr>
+  `).join("");
+
+            // UI
+            app.innerHTML = `
+    <div class="page-header">
+      <div>
+        <h2>🧾 Tạo Hóa đơn mua</h2>
+        <p class="muted">Nguồn: Đơn mua <b>${draft.poId}</b> • NCC: <b>${draft.supplierName || ""}</b></p>
+      </div>
+      <div class="actions"><button class="btn" id="btnBackToPO">← Về đơn mua</button></div>
+    </div>
+
+    <div class="card">
+      <div class="grid form-grid">
+        <label class="field">
+          <span>Số HĐ</span>
+          <div class="inline">
+            <input class="input" id="hd-sohd" value="${draft.suggestSoHd || ""}" placeholder="(để trống để hệ thống tự sinh)">
+            <button class="btn" id="btnRegenHd">↻</button>
+          </div>
+        </label>
+        <label class="field">
+          <span>Ngày HĐ</span>
+          <input class="input" id="hd-ngay" type="date">
+        </label>
+        <label class="field">
+          <span>Hạn thanh toán</span>
+          <input class="input" id="hd-han" type="date">
+        </label>
+        <label class="field">
+          <span>Điều khoản (ngày)</span>
+          <input class="input" id="hd-term" type="number" min="0" step="1" value="${draft.dieuKhoanDays ?? 0}">
+        </label>
+        <label class="field">
+          <span>Phương thức TT</span>
+          <select class="input" id="hd-method">
+            <option value="cong_no"${draft.phuongThucTt === "cong_no" ? " selected" : ""}>Công nợ</option>
+            <option value="chuyen_khoan"${draft.phuongThucTt === "chuyen_khoan" ? " selected" : ""}>Chuyển khoản</option>
+            <option value="tien_mat"${draft.phuongThucTt === "tien_mat" ? " selected" : ""}>Tiền mặt</option>
+          </select>
+        </label>
+        <label class="field" style="grid-column:1/-1">
+          <span>Ghi chú</span>
+          <input class="input" id="hd-note" placeholder="(tùy chọn)">
+        </label>
+      </div>
+
+      <div class="table-wrap" style="margin-top:10px">
+        <table class="table compact">
+          <thead>
+            <tr>
+              <th>#</th><th>Mã</th><th>Tên</th><th>ĐVT</th>
+              <th>SL</th><th>Đơn giá</th><th>Thuế</th><th class="right">Thành tiền</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rows || `<tr><td colspan="8" class="empty">Không có dòng hàng để lập hóa đơn.</td></tr>`}
+          </tbody>
+        </table>
+      </div>
+
+      <div class="grid form-grid totals" style="margin-top:12px">
+        <label class="field"><span>Tiền hàng</span> <input class="input strong" id="hd-tienhang" value="0 ₫" disabled></label>
+        <label class="field"><span>Tiền thuế (tham chiếu)</span> <input class="input strong" id="hd-tienthue" value="0 ₫" disabled></label>
+        <label class="field"><span>Tổng tiền</span> <input class="input strong" id="hd-tongtien" value="0 ₫" disabled></label>
+      </div>
+
+      <div class="form-actions">
+        <button class="btn primary" id="btnSaveHd">Lưu hóa đơn</button>
+        <button class="btn" id="btnCancelHd">Hủy</button>
+      </div>
+    </div>
+  `;
+
+            // set ngày mặc định từ draft
+            const elNgay = document.getElementById("hd-ngay");
+            const elHan = document.getElementById("hd-han");
+            elNgay.value = ymd(draft.ngayHd || new Date());
+            elHan.value = ymd(draft.hanThanhToan || new Date());
+
+            // tự tính hạn TT theo term
+            document.getElementById("hd-term").addEventListener("input", () => {
+                const base = new Date(document.getElementById("hd-ngay").value || new Date());
+                const days = parseInt(document.getElementById("hd-term").value || "0", 10);
+                const dt = new Date(base); dt.setDate(dt.getDate() + (isNaN(days) ? 0 : days));
+                elHan.value = ymd(dt);
+            });
+            document.getElementById("hd-ngay").addEventListener("change", () => {
+                const ev = new Event("input"); document.getElementById("hd-term").dispatchEvent(ev);
+            });
+
+            // Regen số HĐ (lấy lại suggestSoHd mới)
+            document.getElementById("btnRegenHd").addEventListener("click", async () => {
+                const r = await api("getHdDraftFromPO", { PoId: poId });
+                const d2 = r?.draft || r;
+                if (d2?.suggestSoHd) document.getElementById("hd-sohd").value = d2.suggestSoHd;
+            });
+
+            // back
+            document.getElementById("btnBackToPO").addEventListener("click", () => renderPurchaseDetail(poId));
+            document.getElementById("btnCancelHd").addEventListener("click", () => renderPurchaseDetail(poId));
+
+            // tính tổng realtime
+            const recalc = () => {
+                const qEls = [...document.querySelectorAll(".hd-qty")];
+                const pEls = [...document.querySelectorAll(".hd-price")];
+                let sum = 0;
+                qEls.forEach(q => {
+                    const id = q.dataset.item;
+                    const qty = parseFloat(q.value || "0");
+                    const price = parseFloat((pEls.find(p => p.dataset.item === id)?.value) || "0");
+                    const line = (isNaN(qty) ? 0 : qty) * (isNaN(price) ? 0 : price);
+                    sum += line;
+                    const cell = q.closest("tr").querySelector(".hd-line");
+                    if (cell) cell.textContent = fmtMoney(line);
+                });
+                document.getElementById("hd-tienhang").value = fmtMoney(sum);
+                document.getElementById("hd-tienthue").value = fmtMoney(0);  // nếu muốn tính thực, cộng theo từng rate
+                document.getElementById("hd-tongtien").value = fmtMoney(sum);
+            };
+            document.querySelectorAll(".hd-qty,.hd-price").forEach(i => i.addEventListener("input", recalc));
+            recalc();
+
+            // Lưu HĐ (KHÔNG bắt buộc nhập số HĐ – để trống BE sẽ tự sinh)
+            document.getElementById("btnSaveHd").addEventListener("click", async () => {
+                const soHd = (document.getElementById("hd-sohd").value || "").trim(); // có thể rỗng
+                const ngay = document.getElementById("hd-ngay").value;
+                const han = document.getElementById("hd-han").value;
+                const method = document.getElementById("hd-method").value;
+                const note = (document.getElementById("hd-note").value || "").trim();
+
+                if (!ngay) { alert("Chưa chọn ngày HĐ."); return; }
+
+                // gom dòng
+                const qEls = [...document.querySelectorAll(".hd-qty")];
+                const pEls = [...document.querySelectorAll(".hd-price")];
+                const tEls = [...document.querySelectorAll(".hd-tax")];
+                const taxMap = Object.fromEntries(tEls.map(t => [t.dataset.item, t.value]));
+                const priceMap = Object.fromEntries(pEls.map(p => [p.dataset.item, parseFloat(p.value || "0")]));
+
+                const lines = qEls.map(q => {
+                    const itemId = +q.dataset.item;
+                    const qty = parseFloat(q.value || "0");
+                    return {
+                        itemId,
+                        qty: isNaN(qty) ? 0 : qty,
+                        unitPrice: priceMap[q.dataset.item] ?? 0,
+                        thueSuatId: taxMap[q.dataset.item] || null
+                    };
+                }).filter(l => l.qty > 0);
+
+                if (lines.length === 0) { alert("Chưa nhập số lượng dòng nào."); return; }
+
+                const payload = {
+                    poId: poId,
+                    soHd,                              // để trống -> BE tự sinh HD-YYYYMMDD-XXX
+                    ngayHd: toISO(ngay),
+                    hanThanhToan: han ? toISO(han) : null,
+                    phuongThucThanhToan: method,
+                    ghiChu: note,
+                    lines
+                };
+
+                try {
+                    const res = await api("createHoaDonMua", { hoaDon: payload });
+                    if (res?.error) { alert("Lưu hóa đơn lỗi: " + res.error); return; }
+                    alert("Đã tạo Hóa đơn mua: " + (res.soHd || soHd || "(tự sinh)"));
+                    renderPurchaseDetail(poId);   // quay lại: lịch sử HĐ hiện và nút tạo HĐ bị khóa
+                } catch (e) {
+                    console.error(e);
+                    alert("Lỗi lưu Hóa đơn mua: " + (e?.message || e));
                 }
             });
         }
+
+
+        /* ====== HÓA ĐƠN MUA: Xem chi tiết ====== */
+        /* ====== HÓA ĐƠN MUA: Xem chi tiết ====== */
+        async function renderHdDetail(hdId) {
+            const idNum = Number(hdId);
+            if (!Number.isFinite(idNum) || idNum <= 0) {
+                alert("ID hóa đơn không hợp lệ.");
+                return;
+            }
+
+            const rs = await api("getHdDetail", { id: idNum }); // gửi đúng khóa 'id'
+            if (!rs || rs.error) {
+                alert("Không tải được chi tiết hóa đơn.");
+                return;
+            }
+
+            const fmtMoney = n => (n || 0).toLocaleString("vi-VN", { style: "currency", currency: "VND" });
+            const fmtDate = s => (s ? new Date(s).toLocaleDateString("vi-VN") : "");
+
+            const h = rs.header || {};
+            const lines = rs.lines || [];
+
+            const rows = lines.map((d, i) => `
+    <tr>
+      <td>${i + 1}</td>
+      <td>${d.vatTuMa || ""}</td>
+      <td>${d.vatTuTen || ""}</td>
+      <td>${d.dvtTen || ""}</td>
+      <td class="right">${(d.soLuong ?? 0).toLocaleString("vi-VN")}</td>
+      <td class="right">${fmtMoney(d.donGia || 0)}</td>
+      <td class="right">${fmtMoney(d.tienThue || 0)}</td>
+      <td class="right">${fmtMoney((d.thanhTien ?? ((d.soLuong || 0) * (d.donGia || 0))) + (d.tienThue || 0))}</td>
+    </tr>
+  `).join("");
+
+            app.innerHTML = `
+    <div class="page-header">
+      <div>
+        <h2>🧾 Hóa đơn mua: ${h.soCt || ""}</h2>
+        <p class="muted">
+          Ngày HĐ: <b>${fmtDate(h.ngayHoaDon)}</b>
+          ${h.hanThanhToan ? " • Hạn TT: <b>" + fmtDate(h.hanThanhToan) + "</b>" : ""}
+          ${h.nccTen ? " • NCC: <b>" + h.nccTen + "</b>" : ""}
+          ${h.trangThai ? " • Trạng thái: <span class='badge'>" + h.trangThai + "</span>" : ""}
+        </p>
+      </div>
+      <div class="actions">
+        ${h.donMuaId
+                    ? `<button class="btn" id="btnBackToPO">← Về đơn mua</button>`
+                    : `<button class="btn" id="btnBack">← Quay lại</button>`}
+      </div>
+    </div>
+
+    <div class="card">
+      <header class="card-title">Dòng hàng</header>
+      <div class="table-wrap">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>#</th><th>Mã hàng</th><th>Tên hàng</th><th>ĐVT</th>
+              <th class="right">SL</th><th class="right">Đơn giá</th>
+              <th class="right">Thuế</th><th class="right">Thành tiền</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rows || `<tr><td colspan="8" class="empty">Không có dòng hàng.</td></tr>`}
+          </tbody>
+        </table>
+      </div>
+
+      <div class="grid form-grid totals" style="margin-top:12px">
+        <label class="field"><span>Tiền hàng</span><input class="input strong" value="${fmtMoney(h.tienHang || 0)}" disabled></label>
+        <label class="field"><span>Tiền thuế</span><input class="input strong" value="${fmtMoney(h.tienThue || 0)}" disabled></label>
+        <label class="field"><span>Tổng tiền</span><input class="input strong" value="${fmtMoney(h.tongTien || 0)}" disabled></label>
+      </div>
+    </div>
+  `;
+
+            const backBtn = document.getElementById("btnBackToPO") || document.getElementById("btnBack");
+            if (backBtn) {
+                backBtn.addEventListener("click", () => {
+                    if (h.donMuaId) renderPurchaseDetail(h.donMuaId);
+                    else renderInventoryList();
+                });
+            }
+        }
+
+
+
+
+
 
         /* ====== MUA HÀNG: TẠO ĐƠN ====== */
         function renderPurchaseCreate() {
             app.innerHTML = `
-      <div class="page-header">
-        <div>
-          <h2>➕ Tạo đơn mua hàng</h2>
-          <p class="muted">Nhập thông tin nhà cung cấp và dòng vật tư</p>
+  <div class="page-header">
+    <div>
+      <h2>➕ Tạo đơn mua hàng</h2>
+      <p class="muted">Nhập thông tin nhà cung cấp và dòng vật tư</p>
+    </div>
+    <div class="actions">
+      <button class="btn" id="btnBackToList">← Danh sách</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <form class="form">
+      <div class="grid form-grid">
+        <label class="field">
+          <span>Số chứng từ</span>
+          <input id="soCt" class="input" placeholder="vd: PO-20251014-001" />
+        </label>
+
+        <!-- ✅ Chọn NCC theo TÊN/MÃ + tạo nhanh nếu thiếu -->
+        <label class="field">
+          <span>Nhà cung cấp</span>
+          <input id="nccName" class="input" list="nccList" placeholder="Gõ tên hoặc mã NCC…" />
+          <input id="nccId" type="hidden" />
+          <datalist id="nccList"></datalist>
+          <small class="muted">Không thấy? Gõ đầy đủ tên mới rồi Enter để tạo nhanh.</small>
+        </label>
+
+        <label class="field">
+          <span>Ngày đơn</span>
+          <input id="ngayDon" class="input" type="date" />
+        </label>
+        <label class="field">
+          <span>Tỷ giá</span>
+          <input id="tyGia" class="input" type="number" step="0.0001" placeholder="1.0000" />
+        </label>
+        <label class="field">
+          <span>Hợp đồng (> 20 triệu)</span>
+          <select id="hopDong" class="input">
+            <option value="false">Không</option>
+            <option value="true">Có</option>
+          </select>
+        </label>
+        <label class="field">
+          <span>Ghi chú</span>
+          <input id="ghiChu" class="input" placeholder="Ghi chú nội bộ (tùy chọn)" />
+        </label>
+      </div>
+
+      <div class="subsection">
+        <div class="subheader">
+          <h3>Dòng hàng / vật tư</h3>
+          <button type="button" class="btn" id="btnAddLine">+ Thêm dòng</button>
         </div>
-        <div class="actions">
-          <button class="btn" id="btnBackToList">← Danh sách</button>
+
+        <div class="table-wrap">
+          <table class="table compact" id="poLines">
+            <thead>
+              <tr>
+                <th>Mã hàng</th>
+                <th>Tên hàng</th>
+                <th>ĐVT</th>
+                <th>SL</th>
+                <th>Đơn giá</th>
+                <th>Thuế (%)</th>
+                <th>T.Tiền</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr class="hint"><td colspan="8">Nhấn “+ Thêm dòng” để chọn vật tư từ danh mục</td></tr>
+            </tbody>
+          </table>
         </div>
       </div>
 
-      <div class="card">
-        <form class="form">
-          <div class="grid form-grid">
-              <label class="field">
-                <span>Số chứng từ</span>
-                <input id="soCt" class="input" placeholder="vd: PO-20251014-001" />
-              </label>
-            <label class="field">
-              <span>Nhà cung cấp (ID)</span>
-              <input id="nccId" class="input" type="number" placeholder="vd: 1" />
-            </label>
-            <label class="field">
-              <span>Ngày đơn</span>
-              <input id="ngayDon" class="input" type="date" />
-            </label>
-            <label class="field">
-              <span>Tỷ giá</span>
-              <input id="tyGia" class="input" type="number" step="0.0001" placeholder="1.0000" />
-            </label>
-            <label class="field">
-              <span>Hợp đồng (> 20 triệu)</span>
-              <select id="hopDong" class="input">
-                <option value="false">Không</option>
-                <option value="true">Có</option>
-              </select>
-            </label>
-            <label class="field">
-              <span>Ghi chú</span>
-              <input id="ghiChu" class="input" placeholder="Ghi chú nội bộ (tùy chọn)" />
-            </label>
-          </div>
+      <!-- danh mục cho autocomplete -->
+      <datalist id="vtList"></datalist>
 
-          <div class="subsection">
-            <div class="subheader">
-              <h3>Dòng hàng / vật tư</h3>
-              <button type="button" class="btn" id="btnAddLine">+ Thêm dòng</button>
-            </div>
-
-            <div class="table-wrap">
-              <table class="table compact" id="poLines">
-                <thead>
-                  <tr>
-                    <th>VatTuId</th><th>Quy cách</th><th>Loại giấy</th>
-                    <th>GSM</th><th>Màu in</th><th>Gia công</th>
-                    <th>SL</th><th>Đơn giá</th><th>Thuế (%)</th><th></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr class="hint"><td colspan="10">Nhấn “+ Thêm dòng” để thêm vật tư</td></tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          <div class="form-actions">
-            <button type="button" class="btn" id="btnSave">Lưu nháp (tạo đơn)</button>
-            <button type="button" class="btn" disabled>Trình duyệt</button>
-            <button type="button" class="btn primary" disabled>Ghi sổ</button>
-          </div>
-        </form>
+      <div class="form-actions">
+        <button type="button" class="btn" id="btnSave">Lưu nháp (tạo đơn)</button>
+        <button type="button" class="btn primary" disabled>Ghi sổ</button>
       </div>
-    `;
+    </form>
+  </div>
+  `;
 
+            // quay lại danh sách
             document.getElementById("btnBackToList").addEventListener("click", renderPurchaseList);
 
-            // Thêm dòng
-            document.getElementById("btnAddLine").addEventListener("click", () => {
-                const tbody = document.querySelector("#poLines tbody");
-                const tr = document.createElement("tr");
-                tr.innerHTML = `
-    <td><input class="input cell vtId" type="number" value="1" /></td>
-    <td><input class="input cell qc"  placeholder="60x90 cm" /></td>
-    <td><input class="input cell lg"  placeholder="Duplex" /></td>
-    <td><input class="input cell gsm" placeholder="300" /></td>
-    <td><input class="input cell mi"  placeholder="4C" /></td>
-    <td><input class="input cell gc"  placeholder="Cán-Bế" /></td>
-    <td><input class="input cell sl"  type="number" value="100" /></td>
-    <td><input class="input cell dg"  type="number" value="12000" /></td>
-    <td>
-      <select class="input cell vat">
-        <option value="1">0%</option>
-        <option value="2" selected>8%</option>
-        <option value="3">10%</option>
-      </select>
-    </td>
-    <td><button type="button" class="btn link del">Xóa</button></td>
-  `;
-                tbody.querySelector(".hint")?.remove();
-                tbody.appendChild(tr);
-                tr.querySelector(".del").addEventListener("click", () => tr.remove());
+            // ===== cache danh mục trong phạm vi hàm =====
+            let _dmVatTu = []; // {id, ma, ten, donViTinhId}
+            let _dmDvt = [];   // {id, ten}
+            let _dmThue = [];  // {id, ten, tyLe}
+            let _dmNcc = [];   // {id, ma, ten}
+
+            // helpers cục bộ
+            const toInt = v => Number.parseInt(v, 10);
+            const toNum = v => Number.isFinite(Number(v)) ? Number(v) : 0;
+            const fmtVND = n => (n || 0).toLocaleString("vi-VN", { style: "currency", currency: "VND" });
+
+            // ========== NCC: modal tạo nhanh ==========
+            (function injectModalCss() {
+                if (document.getElementById("vtQuickModalCss")) return;
+                const style = document.createElement("style");
+                style.id = "vtQuickModalCss";
+                style.textContent = `
+.modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center;z-index:9999}
+.modal-card{width:min(560px,94vw);background:var(--card-bg,#111827);color:var(--fg,#e5e7eb);border-radius:14px;box-shadow:0 10px 30px rgba(0,0,0,.35)}
+.modal-head{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid rgba(255,255,255,.06)}
+.modal-title{font-weight:600}
+.modal-body{padding:16px}
+.modal-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.modal-actions{display:flex;gap:8px;justify-content:flex-end;padding:12px 16px;border-top:1px solid rgba(255,255,255,.06)}
+.modal .input{width:100%}
+.btn.ghost{background:transparent;border:1px solid rgba(255,255,255,.15)}
+`;
+                document.head.appendChild(style);
+            })();
+
+            function createQuickNccModal() {
+                const wrap = document.createElement("div");
+                wrap.style.display = "none";
+                wrap.innerHTML = `
+    <div class="modal-backdrop" role="dialog" aria-modal="true">
+      <div class="modal-card modal">
+        <div class="modal-head">
+          <div class="modal-title">➕ Tạo nhà cung cấp nhanh</div>
+          <button class="btn ghost" data-x>✕</button>
+        </div>
+        <div class="modal-body">
+          <div class="modal-grid">
+            <label class="field">
+              <span>Mã NCC</span>
+              <input class="input" id="qncc-ma" placeholder="vd: NCC001" />
+            </label>
+            <label class="field">
+              <span>Mã số thuế</span>
+              <input class="input" id="qncc-mst" placeholder="(tùy chọn)" />
+            </label>
+            <label class="field" style="grid-column:1/-1">
+              <span>Tên NCC</span>
+              <input class="input" id="qncc-ten" placeholder="Tên nhà cung cấp…" />
+            </label>
+            <label class="field">
+              <span>SĐT</span>
+              <input class="input" id="qncc-sdt" placeholder="(tùy chọn)" />
+            </label>
+            <label class="field">
+              <span>Email</span>
+              <input class="input" id="qncc-email" placeholder="(tùy chọn)" />
+            </label>
+            <label class="field" style="grid-column:1/-1">
+              <span>Địa chỉ</span>
+              <input class="input" id="qncc-diachi" placeholder="(tùy chọn)" />
+            </label>
+          </div>
+          <p class="muted" style="margin-top:8px">Có thể bổ sung chi tiết sau trong Danh mục &gt; Nhà cung cấp.</p>
+        </div>
+        <div class="modal-actions">
+          <button class="btn ghost" data-cancel>Hủy</button>
+          <button class="btn primary" data-ok>Tạo</button>
+        </div>
+      </div>
+    </div>`;
+                document.body.appendChild(wrap);
+                const $ = sel => wrap.querySelector(sel);
+
+                function open(prefillTenOrMa = "") {
+                    return new Promise(resolve => {
+                        wrap.style.display = "block";
+                        $("#qncc-ten").value = prefillTenOrMa || "";
+                        $("#qncc-ma").value = (prefillTenOrMa || "").toUpperCase().replace(/\W+/g, "").slice(0, 10) || "";
+                        $("#qncc-ten").focus();
+
+                        const done = (val) => { cleanup(); resolve(val); };
+                        const cleanup = () => {
+                            wrap.style.display = "none";
+                            ["click", "keydown"].forEach(evt => {
+                                wrap.removeEventListener(evt, onClick);
+                                document.removeEventListener(evt, onKey);
+                            });
+                        };
+                        const onClick = (e) => {
+                            if (e.target.matches("[data-ok]")) {
+                                const ma = $("#qncc-ma").value.trim();
+                                const ten = $("#qncc-ten").value.trim();
+                                if (!ten) { $("#qncc-ten").focus(); return; }
+                                if (!ma) { $("#qncc-ma").focus(); return; }
+                                done({
+                                    ma, ten,
+                                    maSoThue: $("#qncc-mst").value.trim() || null,
+                                    diaChi: $("#qncc-diachi").value.trim() || null,
+                                    soDienThoai: $("#qncc-sdt").value.trim() || null,
+                                    email: $("#qncc-email").value.trim() || null
+                                });
+                            } else if (e.target.matches("[data-cancel],[data-x]") || e.target.classList.contains("modal-backdrop")) {
+                                done(null);
+                            }
+                        };
+                        const onKey = (e) => {
+                            if (e.key === "Escape") done(null);
+                            if (e.key === "Enter" && document.activeElement.closest(".modal")) {
+                                const ma = $("#qncc-ma").value.trim();
+                                const ten = $("#qncc-ten").value.trim();
+                                if (!ten) { $("#qncc-ten").focus(); return; }
+                                if (!ma) { $("#qncc-ma").focus(); return; }
+                                done({
+                                    ma, ten,
+                                    maSoThue: $("#qncc-mst").value.trim() || null,
+                                    diaChi: $("#qncc-diachi").value.trim() || null,
+                                    soDienThoai: $("#qncc-sdt").value.trim() || null,
+                                    email: $("#qncc-email").value.trim() || null
+                                });
+                            }
+                        };
+                        wrap.addEventListener("click", onClick);
+                        document.addEventListener("keydown", onKey);
+                    });
+                }
+                return { open };
+            }
+            const quickNCC = createQuickNccModal();
+
+            // nạp danh mục từ backend
+            async function loadMasters() {
+                if (_dmVatTu.length === 0 || _dmDvt.length === 0) {
+                    const rs = await api("getVatTu", {}); // { vatTu:[], dvt:[] }
+                    _dmVatTu = rs?.vatTu || [];
+                    _dmDvt = rs?.dvt || [];
+                    const dl = document.getElementById("vtList");
+                    dl.innerHTML = _dmVatTu.map(v => `<option value="${v.ma}">${v.ten}</option>`).join("");
+                }
+                if (_dmThue.length === 0) {
+                    _dmThue = await api("getThueSuat", {}); // [{id,ten,tyLe}]
+                }
+                if (_dmNcc.length === 0) {
+                    const rs = await api("getNhaCungCap", {}); // { ncc:[{id,ma,ten}] }
+                    _dmNcc = rs?.ncc || [];
+                    const nccList = document.getElementById("nccList");
+                    nccList.innerHTML = _dmNcc.map(n => `<option value="${n.ten}">${n.ma}</option>`).join("");
+                }
+            }
+
+            // ====== binding chọn NCC theo tên/mã + tạo nhanh nếu thiếu ======
+            const elNccName = document.getElementById("nccName");
+            const elNccId = document.getElementById("nccId");
+
+            function setNccByNameOrMa(input) {
+                const s = (input || "").trim().toLowerCase();
+                if (!s) { elNccId.value = ""; return false; }
+                const found =
+                    _dmNcc.find(n => (n.ten || "").toLowerCase() === s) ||
+                    _dmNcc.find(n => (n.ma || "").toLowerCase() === s);
+                if (found) {
+                    elNccId.value = found.id;
+                    elNccName.value = found.ten; // chuẩn hóa hiển thị
+                    return true;
+                }
+                elNccId.value = "";
+                return false;
+            }
+
+            async function ensureNcc() {
+                const ok = setNccByNameOrMa(elNccName.value);
+                if (ok) return;
+
+                // chưa có → tạo nhanh
+                const info = await quickNCC.open(elNccName.value);
+                if (!info) { elNccName.value = ""; elNccId.value = ""; return; }
+
+                const created = await api("createNhaCungCap", info);
+                if (created?.ok) {
+                    // refresh danh mục
+                    const rs = await api("getNhaCungCap", {});
+                    _dmNcc = rs?.ncc || [];
+                    const nccList = document.getElementById("nccList");
+                    nccList.innerHTML = _dmNcc.map(n => `<option value="${n.ten}">${n.ma}</option>`).join("");
+
+                    // gán lại
+                    elNccName.value = info.ten;
+                    setNccByNameOrMa(info.ten);
+                } else {
+                    alert("Tạo nhà cung cấp không thành công.");
+                    elNccName.value = ""; elNccId.value = "";
+                }
+            }
+
+            elNccName.addEventListener("change", ensureNcc);
+            elNccName.addEventListener("blur", () => {
+                // nếu người dùng chỉ rời ô mà chưa chọn từ datalist → vẫn thử match
+                if (!elNccId.value) setNccByNameOrMa(elNccName.value);
             });
 
+            // ====== thêm 1 dòng vật tư ======
+            function addLine() {
+                const tbody = document.querySelector("#poLines tbody");
+                tbody.querySelector(".hint")?.remove();
 
-            // Lưu nháp = gọi CreateDonMua
+                const tr = document.createElement("tr");
+                tr.innerHTML = `
+      <td>
+        <input class="input cell vtMa" list="vtList" placeholder="Nhập mã...">
+        <input type="hidden" class="vtId">
+      </td>
+      <td class="vtTen muted"></td>
+      <td class="vtDvt muted"></td>
+      <td><input class="input cell sl" type="number" step="0.001" min="0" value="0"></td>
+      <td><input class="input cell dg" type="number" step="0.01"  min="0" value="0"></td>
+      <td>
+        <select class="input cell vat">
+          ${(_dmThue || []).map(t => `<option value="${t.id}">${t.ten}</option>`).join("")}
+        </select>
+      </td>
+      <td class="right tt">₫ 0</td>
+      <td><button type="button" class="btn link del">Xóa</button></td>
+    `;
+                tbody.appendChild(tr);
+
+                const elMa = tr.querySelector(".vtMa");
+                const elId = tr.querySelector(".vtId");
+                const elTen = tr.querySelector(".vtTen");
+                const elDvt = tr.querySelector(".vtDvt");
+                const elSl = tr.querySelector(".sl");
+                const elDg = tr.querySelector(".dg");
+                const elTt = tr.querySelector(".tt");
+
+                function bindByMa(ma) {
+                    const vt = (_dmVatTu || []).find(x => (x.ma || "").toLowerCase() === (ma || "").toLowerCase());
+                    if (!vt) { elId.value = ""; elTen.textContent = ""; elDvt.textContent = ""; return false; }
+                    elId.value = vt.id;
+                    elTen.textContent = vt.ten;
+                    const dvt = (_dmDvt || []).find(d => d.id === vt.donViTinhId);
+                    elDvt.textContent = dvt ? dvt.ten : "";
+                    return true;
+                }
+
+                async function ensureVatTu() {
+                    const ma = (elMa.value || "").trim();
+                    if (!ma) { bindByMa(""); return; }
+                    if (bindByMa(ma)) return;
+
+                    const info = await quickVT.open(ma);
+                    if (!info) { bindByMa(""); return; }
+
+                    const created = await api("createVatTu", info);
+                    if (created?.ok) {
+                        const masters = await api("getVatTu", {});
+                        _dmVatTu = masters.vatTu || [];
+                        _dmDvt = masters.dvt || [];
+                        document.getElementById("vtList").innerHTML =
+                            _dmVatTu.map(v => `<option value="${v.ma}">${v.ten}</option>`).join("");
+
+                        elMa.value = info.ma;
+                        bindByMa(info.ma);
+                    } else {
+                        alert("Tạo vật tư không thành công.");
+                        bindByMa("");
+                    }
+                }
+
+                function recompute() {
+                    const sl = toNum(elSl.value);
+                    const dg = toNum(elDg.value);
+                    elTt.textContent = fmtVND(sl * dg);
+                }
+
+                elMa.addEventListener("change", ensureVatTu);
+                elSl.addEventListener("input", recompute);
+                elDg.addEventListener("input", recompute);
+                tr.querySelector(".del").addEventListener("click", () => tr.remove());
+            }
+
+            // ====== load masters xong mới cho thêm dòng ======
+            loadMasters().then(() => {
+                document.getElementById("btnAddLine").addEventListener("click", addLine);
+            });
+
+            // ====== modal tạo nhanh Vật tư (đã có từ trước của bạn) ======
+            function createQuickVatTuModal() {
+                const wrap = document.createElement("div");
+                wrap.style.display = "none";
+                wrap.innerHTML = `
+    <div class="modal-backdrop" role="dialog" aria-modal="true">
+      <div class="modal-card modal">
+        <div class="modal-head">
+          <div class="modal-title">➕ Tạo vật tư nhanh</div>
+          <button class="btn ghost" data-x>✕</button>
+        </div>
+        <div class="modal-body">
+          <div class="modal-grid">
+            <label class="field">
+              <span>Mã vật tư</span>
+              <input class="input" id="qvt-ma" placeholder="vd: B400x500" />
+            </label>
+            <label class="field">
+              <span>Đơn vị tính</span>
+              <input class="input" id="qvt-dvt" placeholder="vd: Kg, Tờ, Cái" />
+            </label>
+            <label class="field" style="grid-column:1/-1">
+              <span>Tên vật tư</span>
+              <input class="input" id="qvt-ten" placeholder="Tên hiển thị…" />
+            </label>
+          </div>
+          <p class="muted" style="margin-top:8px">Bạn có thể sửa lại sau trong Danh mục.</p>
+        </div>
+        <div class="modal-actions">
+          <button class="btn ghost" data-cancel>Hủy</button>
+          <button class="btn primary" data-ok>Tạo</button>
+        </div>
+      </div>
+    </div>`;
+                document.body.appendChild(wrap);
+                const $ = (sel) => wrap.querySelector(sel);
+
+                function open(prefillMa = "") {
+                    return new Promise(resolve => {
+                        wrap.style.display = "block";
+                        $("#qvt-ma").value = prefillMa || "";
+                        $("#qvt-ten").value = prefillMa || "";
+                        $("#qvt-dvt").value = "Cái";
+                        $("#qvt-ten").focus();
+
+                        const done = (val) => { cleanup(); resolve(val); };
+                        const cleanup = () => {
+                            wrap.style.display = "none";
+                            $("#qvt-ma").value = $("#qvt-ten").value = $("#qvt-dvt").value = "";
+                            ["click", "keydown"].forEach(evt => {
+                                wrap.removeEventListener(evt, onClick);
+                                document.removeEventListener(evt, onKey);
+                            });
+                        };
+                        const onClick = (e) => {
+                            if (e.target.matches("[data-ok]")) {
+                                const ma = $("#qvt-ma").value.trim();
+                                const ten = $("#qvt-ten").value.trim() || ma;
+                                const dvtTen = $("#qvt-dvt").value.trim() || "Cái";
+                                if (!ma) { $("#qvt-ma").focus(); return; }
+                                done({ ma, ten, dvtTen });
+                            } else if (e.target.matches("[data-cancel],[data-x]") || e.target.classList.contains("modal-backdrop")) {
+                                done(null);
+                            }
+                        };
+                        const onKey = (e) => {
+                            if (e.key === "Escape") done(null);
+                            if (e.key === "Enter" && document.activeElement.closest(".modal")) {
+                                const ma = $("#qvt-ma").value.trim();
+                                const ten = $("#qvt-ten").value.trim() || ma;
+                                const dvtTen = $("#qvt-dvt").value.trim() || "Cái";
+                                if (!ma) { $("#qvt-ma").focus(); return; }
+                                done({ ma, ten, dvtTen });
+                            }
+                        };
+                        wrap.addEventListener("click", onClick);
+                        document.addEventListener("keydown", onKey);
+                    });
+                }
+                return { open };
+            }
+            const quickVT = createQuickVatTuModal();
+
             // ====== Lưu nháp (tạo đơn) ======
             document.getElementById("btnSave").addEventListener("click", async () => {
                 try {
-                    // helpers parse an toàn
-                    const toInt = (v) => {
-                        const n = Number(v);
-                        return Number.isInteger(n) ? n : NaN;
-                    };
-                    const toNum = (v) => {
-                        const n = Number(v);
-                        return Number.isFinite(n) ? n : NaN;
-                    };
-                    // sinh mã chứng từ nếu trống: PO-YYMMDD-xyz
-                    const genSoCt = () => {
+                    // sinh số CT nếu trống
+                    let soCt = (document.getElementById("soCt").value || "").trim();
+                    if (!soCt) {
                         const d = new Date();
                         const y = String(d.getFullYear()).slice(-2);
                         const m = String(d.getMonth() + 1).padStart(2, "0");
                         const day = String(d.getDate()).padStart(2, "0");
-                        const r = Math.floor(100 + Math.random() * 900); // 100..999
-                        return `PO-${y}${m}${day}-${r}`;
-                    };
-
-                    // soCt: lấy từ input nếu có, nếu trống thì tự sinh
-                    const soCtInput = document.getElementById("soCt"); // có thể không tồn tại
-                    let soCt = soCtInput?.value?.trim();
-                    if (!soCt) {
-                        soCt = genSoCt();
-                        if (soCtInput) soCtInput.value = soCt; // hiển thị lại cho user
+                        const r = Math.floor(100 + Math.random() * 900);
+                        soCt = `PO-${y}${m}${day}-${r}`;
+                        document.getElementById("soCt").value = soCt;
                     }
 
-                    // validate NCC
+                    // ✅ dùng NCC ID ẩn (đã chọn / tạo nhanh)
                     const nccId = toInt(document.getElementById("nccId").value || "0");
                     if (!Number.isInteger(nccId) || nccId <= 0) {
-                        alert("Vui lòng nhập Nhà cung cấp ID hợp lệ (ví dụ: 1).");
+                        alert("Vui lòng chọn Nhà cung cấp hợp lệ (gõ tên hoặc tạo nhanh).");
+                        document.getElementById("nccName").focus();
                         return;
                     }
 
-                    // gom dòng vật tư
                     const rows = [...document.querySelectorAll("#poLines tbody tr")]
-                        .filter(tr => !tr.classList.contains("hint"));
-                    if (rows.length === 0) {
-                        alert("Chưa có dòng vật tư.");
-                        return;
-                    }
+                        .filter(r => !r.classList.contains("hint"));
+                    if (rows.length === 0) { alert("Chưa có dòng hàng."); return; }
 
                     const lines = [];
-                    for (const tr of rows) {
-                        const vatTuId = toInt(tr.querySelector(".vtId")?.value ?? "");
-                        const thueSuatId = toInt(tr.querySelector(".vat")?.value ?? "");
-                        const soLuong = toNum(tr.querySelector(".sl")?.value ?? "");
-                        const donGia = toNum(tr.querySelector(".dg")?.value ?? "");
-
-                        if (!Number.isInteger(vatTuId) || vatTuId <= 0) { alert("VatTuId không hợp lệ."); return; }
-                        if (!Number.isInteger(thueSuatId) || thueSuatId <= 0) { alert("Thuế suất không hợp lệ."); return; }
-                        if (!Number.isFinite(soLuong) || soLuong <= 0) { alert("Số lượng phải > 0."); return; }
-                        if (!Number.isFinite(donGia) || donGia < 0) { alert("Đơn giá phải ≥ 0."); return; }
-
-                        lines.push({
-                            vatTuId,
-                            kichThuoc: tr.querySelector(".qc")?.value || null,
-                            loaiGiay: tr.querySelector(".lg")?.value || null,
-                            dinhLuongGsm: tr.querySelector(".gsm")?.value || null,
-                            mauIn: tr.querySelector(".mi")?.value || null,
-                            giaCong: tr.querySelector(".gc")?.value || null,
-                            soLuong,
-                            donGia,
-                            thueSuatId
-                        });
+                    for (const r of rows) {
+                        const vtId = toInt(r.querySelector(".vtId").value || "0");
+                        const sl = toNum(r.querySelector(".sl").value || "0");
+                        const dg = toNum(r.querySelector(".dg").value || "0");
+                        const vat = toInt(r.querySelector(".vat").value || "0");
+                        if (!vtId) { alert("Có dòng chưa chọn đúng Mã hàng từ danh mục."); return; }
+                        if (!(sl > 0)) { alert("Số lượng phải > 0."); return; }
+                        if (dg < 0) { alert("Đơn giá phải ≥ 0."); return; }
+                        if (!vat) { alert("Thuế suất không hợp lệ."); return; }
+                        lines.push({ vatTuId: vtId, soLuong: sl, donGia: dg, thueSuatId: vat });
                     }
 
-                    // header đơn mua
                     const donmua = {
-                        soCt, // QUAN TRỌNG
-                        nhaCungCapId: nccId,
-                        ngayDon: (document.getElementById("ngayDon").value || new Date().toISOString().substring(0, 10)),
+                        soCt,
+                        nhaCungCapId: nccId, // ✅ đã chuyển sang ID nội bộ
+                        ngayDon: document.getElementById("ngayDon").value || new Date().toISOString().substring(0, 10),
                         tienTe: "VND",
-                        tyGia: Number(document.getElementById("tyGia").value || "1"),
+                        tyGia: toNum(document.getElementById("tyGia").value || "1"),
                         coHopDongLon: document.getElementById("hopDong").value === "true",
                         ghiChu: document.getElementById("ghiChu").value || null
                     };
 
-                    // gọi backend
                     const res = await api("createDonMua", { donmua, lines });
-
                     if (res?.id) {
                         alert("Đã tạo đơn: " + res.soCt);
                         renderPurchaseList();
@@ -407,300 +1565,1900 @@
                     console.error(err);
                 }
             });
-
         }
 
-        function renderSalesList() {
+
+        async function renderSalesList() {
+            // khung "đang tải"
             app.innerHTML = `
-                          <div class="page-header">
-                            <div>
-                              <h2>💼 Bán hàng</h2>
-                              <p class="muted">Báo giá → Đơn hàng → Hợp đồng bán → Hóa đơn → Thu tiền</p>
-                            </div>
-                            <div class="actions">
-                              <button class="btn primary" id="btnCreateSO">+ Lập đơn bán</button>
-                            </div>
-                          </div>
+    <div class="page-header">
+      <div>
+        <h2>💼 Đơn hàng in ấn</h2>
+        <p class="muted">Danh sách đơn hàng / báo giá</p>
+      </div>
+      <div class="actions">
+        <button class="btn primary" id="btnCreateSO">+ Lập đơn hàng</button>
+      </div>
+    </div>
 
-                          <div class="toolbar">
-                            <input class="input" placeholder="Tìm theo mã / khách hàng / hợp đồng..." />
-                            <select class="input">
-                              <option>Tất cả trạng thái</option>
-                              <option>Báo giá</option>
-                              <option>Đơn hàng</option>
-                              <option>Đã giao</option>
-                              <option>Đã hóa đơn</option>
-                              <option>Đã thu tiền</option>
-                            </select>
-                            <select class="input">
-                              <option>Tháng này</option>
-                              <option>Quý này</option>
-                              <option>Năm nay</option>
-                              <option>Tùy chọn…</option>
-                            </select>
-                            <div class="spacer"></div>
-                            <button class="btn">Xuất Excel</button>
-                            <button class="btn">In</button>
-                          </div>
+    <div class="card">
+      <div class="table-wrap">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Mã</th><th>Khách hàng</th><th>Ngày</th>
+              <th>Giá trị</th><th>Trạng thái</th><th></th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td colspan="6" class="empty">Đang tải dữ liệu…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  `;
 
-                          <div class="card">
-                            <div class="table-wrap">
-                              <table class="table">
-                                <thead>
-                                  <tr>
-                                    <th>Mã chứng từ</th><th>Khách hàng</th><th>Ngày</th>
-                                    <th>Giá trị</th><th>Trạng thái</th><th>Hợp đồng</th><th></th>
-                                  </tr>
-                                </thead>
-                                <tbody>
-                                  <tr>
-                                    <td>SO-1001</td>
-                                    <td>Cty Bao Bì Minh Quân</td>
-                                    <td>06/10/2025</td>
-                                    <td>₫ 420,000,000</td>
-                                    <td><span class="badge warn">Đơn hàng</span></td>
-                                    <td><span class="badge">> 20 triệu</span></td>
-                                    <td><button class="btn link">Xem</button></td>
-                                  </tr>
-                                  <tr>
-                                    <td>SO-1002</td>
-                                    <td>Vinprint JSC</td>
-                                    <td>12/10/2025</td>
-                                    <td>₫ 18,700,000</td>
-                                    <td><span class="badge ok">Đã giao</span></td>
-                                    <td><span class="badge muted">≤ 20 triệu</span></td>
-                                    <td><button class="btn link">Xem</button></td>
-                                  </tr>
-                                  <tr>
-                                    <td colspan="7" class="empty">…</td>
-                                  </tr>
-                                </tbody>
-                              </table>
-                            </div>
-                          </div>
-                        `;
-
+            // gắn ngay event tạo mới
             document.getElementById("btnCreateSO").addEventListener("click", renderSalesCreate);
+
+            try {
+                const data = await api("getSalesList", {});
+                const list = data?.items || [];
+
+                const rowsHtml = list.length
+                    ? list.map(o => `
+          <tr>
+            <td>${o.soCt || ""}</td>
+            <td>${o.khachHang || ""}</td>
+            <td>${formatDate(o.ngayDon)}</td>
+            <td class="right">${formatMoney(o.tienHang)}</td>
+            <td>${badgeHtml(o.trangThai)}</td>
+            <td><button class="btn link" data-id="${o.id}">Xem</button></td>
+          </tr>
+        `).join("")
+                    : `<tr><td colspan="6" class="empty">Chưa có dữ liệu</td></tr>`;
+
+                // đổ dữ liệu vào tbody
+                const tbody = app.querySelector(".table tbody");
+                tbody.innerHTML = rowsHtml;
+
+                // gắn event cho nút "Xem"
+                app.querySelectorAll("button[data-id]").forEach(btn => {
+                    btn.addEventListener("click", () => renderSalesDetail(Number(btn.dataset.id)));
+                });
+
+            } catch (err) {
+                const tbody = app.querySelector(".table tbody");
+                tbody.innerHTML = `<tr><td colspan="6" class="empty">Không tải được dữ liệu.</td></tr>`;
+                console.error("getSalesList error:", err);
+            }
         }
+
+
+        async function renderSalesDetail(id) {
+            // lấy dữ liệu
+            const data = id ? await api("getSalesDetail", { id: Number(id) }) : { header: {}, lines: [] };
+            const h = data.header || {};
+            const lines = data.lines || [];
+
+            // trạng thái hiện tại
+            const status = (h.trangThai || "draft");
+
+            // map nhãn TV & class huy hiệu
+            const viLabel = {
+                draft: "Bản nháp",
+                quote: "Báo giá",
+                confirmed: "KH xác nhận",
+                approved: "QL duyệt",
+                in_production: "Đang sản xuất",
+                shipped: "Đã xuất kho",
+                invoiced: "Đã hóa đơn",
+                paid: "Đã thu tiền",
+                canceled: "Đã hủy"
+            };
+            function badgeHtml(st) {
+                const clsMap = {
+                    draft: "muted", quote: "info", confirmed: "info",
+                    approved: "warn", in_production: "warn",
+                    shipped: "", invoiced: "ok", paid: "ok",
+                    canceled: "error"
+                };
+                const cls = clsMap[st] || "muted";
+                return `<span class="pill ${cls}">${viLabel[st] || st}</span>`;
+            }
+
+            // UI
+            app.innerHTML = `
+    <div class="page-header">
+      <div>
+        <h2>${id ? "✏️ Sửa đơn hàng" : "➕ Lập đơn hàng mới"}</h2>
+        <div style="margin-top:.25rem">${badgeHtml(status)}</div>
+      </div>
+      <div class="actions">
+        <button class="btn" id="btnBack">← Danh sách</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="grid form-grid">
+        <label class="field">
+          <span>Khách hàng</span>
+          <input class="input" id="txtKhach" value="${h.khachHangTen || ""}" />
+        </label>
+        <label class="field">
+          <span>Ngày</span>
+          <input type="date" class="input" id="txtNgay" value="${formatDateInput(h.ngayDon)}" />
+        </label>
+        <label class="field full">
+          <span>Ghi chú</span>
+          <input class="input" id="txtNote" value="${h.ghiChu || ""}" placeholder="Ghi chú nội bộ (nếu có)"/>
+        </label>
+      </div>
+
+      <div class="subsection">
+        <div class="subheader">
+          <h3>Dòng hàng</h3>
+          <button class="btn" id="btnAddLine">+ Thêm</button>
+        </div>
+
+        <table class="table compact" id="tblLines">
+          <thead>
+            <tr>
+              <th>Tên hàng</th><th>Quy cách</th><th>SL</th>
+              <th>Đơn giá</th><th>VAT</th><th>Tổng</th><th></th>
+            </tr>
+          </thead>
+          <tbody>
+            ${lines.map(l => renderLine(l)).join("") || `<tr class="hint"><td colspan="7">Chưa có dòng</td></tr>`}
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Hành động -->
+      <div class="subsection">
+        <div class="subheader"><h3>Hành động</h3></div>
+        <div class="actions">
+          <button class="btn" id="btnMakeQuote">🧾 Tạo báo giá</button>
+          <button class="btn" id="btnCustomerConfirm">✅ KH xác nhận</button>
+          <button class="btn" id="btnApprove">🔏 QL duyệt</button>
+          <button class="btn" id="btnCreateMO">🏭 Tạo lệnh sản xuất</button>
+          <button class="btn" id="btnCreatePX">🚚 Tạo phiếu xuất</button>
+          <button class="btn" id="btnCreateInvoice">🧾 Tạo hóa đơn</button>
+        </div>
+      </div>
+
+      <!-- Chứng từ liên quan -->
+      <div class="subsection">
+        <div class="subheader"><h3>Chứng từ liên quan</h3></div>
+        <div id="relatedDocs">
+          <div class="grid" style="grid-template-columns: 1fr 1fr; gap: 16px;">
+            <div class="card">
+              <header class="card-title">🧾 Hóa đơn bán</header>
+              <div class="table-wrap">
+                <table class="table compact" id="tblHdBan">
+                  <thead>
+                    <tr><th>Số HĐ</th><th>Ngày</th><th>Tổng</th><th>TT</th><th></th></tr>
+                  </thead>
+                  <tbody><tr><td colspan="5" class="muted">Đang tải...</td></tr></tbody>
+                </table>
+              </div>
+            </div>
+            <div class="card">
+              <header class="card-title">🚚 Phiếu xuất</header>
+              <div class="table-wrap">
+                <table class="table compact" id="tblPx">
+                  <thead>
+                    <tr><th>Số PX</th><th>Ngày</th><th>Ghi chú</th><th></th></tr>
+                  </thead>
+                  <tbody><tr><td colspan="4" class="muted">Đang tải...</td></tr></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="form-actions">
+        <button class="btn primary" id="btnSave">💾 Lưu</button>
+      </div>
+    </div>
+  `;
+
+            // ẩn/hiện nút theo trạng thái
+            function showActionsByStatus(st) {
+                toggle("#btnMakeQuote", st === "draft");
+                toggle("#btnCustomerConfirm", st === "quote");
+                toggle("#btnApprove", st === "confirmed");
+                toggle("#btnCreateMO", st === "approved");               // sau khi QL duyệt mới tạo MO
+                toggle("#btnCreatePX", st === "in_production");          // sau khi SX xong thì xuất kho
+                toggle("#btnCreateInvoice", st === "shipped");           // sau khi xuất kho
+            }
+            showActionsByStatus(status);
+
+            // ==== events cơ bản ====
+            on("#btnBack", renderSalesList);
+
+            on("#btnAddLine", () => {
+                const tbody = document.querySelector("#tblLines tbody");
+                tbody.querySelector(".hint")?.remove();
+                tbody.insertAdjacentHTML("beforeend", renderLine({}));
+                const tr = tbody.lastElementChild;
+                tr.querySelector(".btnDelLine").addEventListener("click", () => { tr.remove(); calcSalesTotals(); });
+                tr.querySelectorAll("input").forEach(inp => inp.addEventListener("input", calcSalesTotals));
+                calcSalesTotals();
+            });
+
+            // gom dòng
+            function collectLines() {
+                const rows = Array.from(document.querySelectorAll("#tblLines tbody tr"))
+                    .filter(tr => tr.querySelector(".tenHang"));
+                return rows.map(tr => ({
+                    TenHang: tr.querySelector(".tenHang").value?.trim(),
+                    QuyCach: tr.querySelector(".quyCach").value?.trim(),
+                    SoLuong: parseFloat(tr.querySelector(".soLuong").value) || 0,
+                    DonGia: parseFloat(tr.querySelector(".donGia").value) || 0,
+                    ThueSuat: parseFloat(tr.querySelector(".thueSuat").value) || 0,
+                    ThanhTien: 0
+                }));
+            }
+
+            // lưu đơn (giữ trạng thái hiện tại)
+            on("#btnSave", async () => {
+                const header = {
+                    Id: Number(h.id || id || 0),
+                    SoCt: h.soCt || "",
+                    KhachHangId: h.khachHangId || 1, // TODO: thay bằng select KH thật
+                    NgayDon: document.getElementById("txtNgay").value,
+                    TrangThai: status,
+                    GhiChu: document.getElementById("txtNote").value || ""
+                };
+                const linesToSave = collectLines();
+                if (!linesToSave.length) { alert("Chưa có dòng hàng!"); return; }
+
+                await api("saveSalesOrder", { header, lines: linesToSave });
+                alert("Đã lưu đơn hàng!");
+                renderSalesDetail(header.Id || id);
+            });
+
+            // ====== TẠO BÁO GIÁ (PDF) ======
+            on("#btnMakeQuote", async () => {
+                const orderId = Number(h.id || id);
+                if (!orderId) { alert("Vui lòng lưu đơn trước khi tạo báo giá."); return; }
+
+                const res = await api("makeQuote", { id: orderId });
+                if (res?.ok) {
+                    const url = res.fileUrl || res.downloadUrl;
+                    if (url) {
+                        const win = window.open(url, "_blank");
+                        if (!win) location.href = url;
+                    }
+                    alert("Đã tạo báo giá (PDF) và chuyển sang trạng thái Báo giá.");
+                    renderSalesDetail(orderId);
+                } else {
+                    alert(res?.error || "Không tạo được báo giá");
+                    console.error("makeQuote failed:", res);
+                }
+            });
+
+            // ====== ĐỔI TRẠNG THÁI CHUNG ======
+            async function change(action, okMsg) {
+                const res = await api("changeSalesStatus", { id: Number(h.id || id), action });
+                if (res?.error) { alert(res.error); return; }
+                if (okMsg) alert(okMsg);
+                renderSalesDetail(h.id || id);
+            }
+            on("#btnCustomerConfirm", () => change("customer_confirm", "Khách hàng đã xác nhận."));
+            on("#btnApprove", () => change("approve", "Quản lý đã duyệt."));
+
+            // ====== TẠO LỆNH SẢN XUẤT ======
+            on("#btnCreateMO", async () => {
+                const soId = Number(h.id || id);
+                if (!soId) { alert("Vui lòng lưu đơn trước."); return; }
+
+                const preset = await api("getMoPresetFromSo", { soId });
+                if (preset?.error) { alert(preset.error); return; }
+
+                // LƯU LẠI để form MO lấy SoId khi save
+                window.__moPreset = preset;
+                renderMoCreate(preset);
+            });
+
+            // ====== TẠO PHIẾU XUẤT ======
+            on("#btnCreatePX", async () => {
+                const soId = Number(h.id || id);
+                if (!soId) { alert("Vui lòng lưu đơn trước."); return; }
+                if (!confirm("Tạo phiếu xuất cho đơn này?")) return;
+
+                const res = await api("createPhieuXuatFromSo", { soId });
+                if (res?.ok) {
+                    alert(`Đã tạo phiếu xuất ${res.pxCode}`);
+                    // Xem PX hoặc quay lại đơn để thấy badge đổi — chọn 1:
+                    renderPxDetail(res.pxId);
+                    // renderSalesDetail(res.soId);
+                } else {
+                    alert(res?.error || "Không tạo được phiếu xuất.");
+                }
+            });
+
+            // ====== TẠO HÓA ĐƠN BÁN ======
+            on("#btnCreateInvoice", async () => {
+                const soId = Number(h.id || id);
+                if (!soId) { alert("Vui lòng lưu đơn trước."); return; }
+                if (!confirm("Tạo hóa đơn bán hàng cho đơn này?")) return;
+
+                const res = await api("createInvoiceFromSo", { soId });
+                if (res?.ok) {
+                    alert(`Đã tạo hóa đơn ${res.hdCode}`);
+                    renderHdBanDetail(res.hdId); // hoặc: renderSalesDetail(res.soId);
+                } else {
+                    alert(res?.error || "Không tạo được hóa đơn.");
+                }
+            });
+
+            // ==== load chứng từ liên quan (HD & PX) ====
+            (async () => {
+                const soId = Number(h.id || id);
+                if (!soId) return;
+
+                const rel = await api("getSalesLinkedDocs", { soId });
+                const fmtDate = s => (s ? new Date(s).toLocaleDateString("vi-VN") : "");
+                const fmtMoney = n => (n || 0).toLocaleString("vi-VN", { style: "currency", currency: "VND" });
+
+                // Hóa đơn bán
+                {
+                    const tbody = document.querySelector("#tblHdBan tbody");
+                    const rows = (rel?.invoices || []).map(i => `
+        <tr>
+          <td>${i.so}</td>
+          <td>${fmtDate(i.ngay)}</td>
+          <td class="right">${fmtMoney(i.tong)}</td>
+          <td>${i.trangThai || ""}</td>
+          <td><button class="btn link btnViewHd" data-id="${i.id}">Xem</button></td>
+        </tr>
+      `).join("");
+                    tbody.innerHTML = rows || `<tr><td colspan="5" class="muted">Chưa có hóa đơn.</td></tr>`;
+                    tbody.querySelectorAll(".btnViewHd").forEach(btn => {
+                        btn.addEventListener("click", e => {
+                            const hid = Number(e.currentTarget.getAttribute("data-id"));
+                            renderHdBanDetail(hid);
+                        });
+                    });
+                }
+
+                // Phiếu xuất
+                {
+                    const tbody = document.querySelector("#tblPx tbody");
+                    const rows = (rel?.pxs || []).map(p => `
+        <tr>
+          <td>${p.so}</td>
+          <td>${fmtDate(p.ngay)}</td>
+          <td class="ellipsis" title="${p.ghiChu || ""}">${p.ghiChu || ""}</td>
+          <td><button class="btn link btnViewPx" data-id="${p.id}">Xem</button></td>
+        </tr>
+      `).join("");
+                    tbody.innerHTML = rows || `<tr><td colspan="4" class="muted">Chưa có phiếu xuất.</td></tr>`;
+                    tbody.querySelectorAll(".btnViewPx").forEach(btn => {
+                        btn.addEventListener("click", e => {
+                            const pid = Number(e.currentTarget.getAttribute("data-id"));
+                            renderPxDetail(pid);
+                        });
+                    });
+                }
+            })();
+
+            // gắn tính tổng cho các dòng hiện có
+            document.querySelectorAll("#tblLines tbody tr").forEach(tr => {
+                tr.querySelector(".btnDelLine")?.addEventListener("click", () => { tr.remove(); calcSalesTotals(); });
+                tr.querySelectorAll("input")?.forEach(inp => inp.addEventListener("input", calcSalesTotals));
+            });
+            calcSalesTotals();
+        }
+
+
+        // ========== XEM HÓA ĐƠN BÁN ==========
+        async function renderHdBanDetail(hdId) {
+            const idNum = Number(hdId);
+            if (!Number.isFinite(idNum) || idNum <= 0) { alert("ID hóa đơn không hợp lệ."); return; }
+
+            // TÊN LỆNH BACKEND: getHdBanDetail
+            const rs = await api("getHdBanDetail", { id: idNum });
+            if (!rs || rs.error) { alert(rs.error || "Không tải được chi tiết hóa đơn bán."); return; }
+
+            const fmtMoney = n => (n || 0).toLocaleString("vi-VN", { style: "currency", currency: "VND" });
+            const fmtDate = s => (s ? new Date(s).toLocaleDateString("vi-VN") : "");
+
+            const h = rs.header || {};
+            const lines = rs.lines || [];
+
+            const rows = lines.map((d, i) => `
+    <tr>
+      <td>${i + 1}</td>
+      <td>${d.tenHang || ""}</td>
+      <td>${d.quyCach || ""}</td>
+      <td>${d.donViTinh || ""}</td>
+      <td class="right">${(d.soLuong ?? 0).toLocaleString("vi-VN")}</td>
+      <td class="right">${fmtMoney(d.donGia || 0)}</td>
+      <td class="right">${fmtMoney(d.tienThue || 0)}</td>
+      <td class="right">${fmtMoney(d.thanhTien || (d.soLuong || 0) * (d.donGia || 0) + (d.tienThue || 0))}</td>
+    </tr>
+  `).join("");
+
+            app.innerHTML = `
+    <div class="page-header">
+      <div>
+        <h2>🧾 Hóa đơn bán: ${h.soHoaDon || ""}</h2>
+        <p class="muted">
+          Ngày HĐ: <b>${fmtDate(h.ngayHoaDon)}</b>
+          ${h.trangThai ? " • Trạng thái: <span class='badge'>" + h.trangThai + "</span>" : ""}
+        </p>
+      </div>
+      <div class="actions">
+        ${h.donBanId ? `<button class="btn" id="btnBackToSO">← Về đơn bán</button>` : `<button class="btn" id="btnBack">← Quay lại</button>`}
+      </div>
+    </div>
+
+    <div class="card">
+      <header class="card-title">Dòng hàng</header>
+      <div class="table-wrap">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>#</th><th>Tên hàng</th><th>Quy cách</th><th>ĐVT</th>
+              <th class="right">SL</th><th class="right">Đơn giá</th>
+              <th class="right">Thuế</th><th class="right">Thành tiền</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rows || `<tr><td colspan="8" class="empty">Không có dòng.</td></tr>`}
+          </tbody>
+        </table>
+      </div>
+
+      <div class="grid form-grid totals" style="margin-top:12px">
+        <label class="field"><span>Tiền hàng</span><input class="input strong" value="${fmtMoney(h.tienHang || 0)}" disabled></label>
+        <label class="field"><span>Tiền thuế</span><input class="input strong" value="${fmtMoney(h.tienThue || 0)}" disabled></label>
+        <label class="field"><span>Tổng tiền</span><input class="input strong" value="${fmtMoney(h.tongTien || 0)}" disabled></label>
+      </div>
+    </div>
+  `;
+
+            const back = document.getElementById("btnBackToSO") || document.getElementById("btnBack");
+            if (back) back.addEventListener("click", () => {
+                if (h.donBanId) renderSalesDetail(h.donBanId);
+                else renderSalesList();
+            });
+        }
+
+        // ========== XEM PHIẾU XUẤT ==========
+        async function renderPxDetail(pxId) {
+            const idNum = Number(pxId);
+            if (!Number.isFinite(idNum) || idNum <= 0) { alert("ID phiếu xuất không hợp lệ."); return; }
+
+            // TÊN LỆNH BACKEND: getPxDetail
+            const rs = await api("getPxDetail", { id: idNum });
+            if (!rs || rs.error) { alert(rs.error || "Không tải được chi tiết phiếu xuất."); return; }
+
+            const fmtDate = s => (s ? new Date(s).toLocaleDateString("vi-VN") : "");
+            const fmtMoney = n => (n || 0).toLocaleString("vi-VN", { style: "currency", currency: "VND" });
+
+            const h = rs.header || {};
+            const lines = rs.lines || [];
+
+            const rows = lines.map((d, i) => `
+    <tr>
+      <td>${i + 1}</td>
+      <td>${d.vatTuMa || ""}</td>
+      <td>${d.vatTuTen || ""}</td>
+      <td>${d.dvtTen || ""}</td>
+      <td class="right">${(d.soLuong ?? 0).toLocaleString("vi-VN")}</td>
+      <td class="right">${fmtMoney(d.donGia || 0)}</td>
+      <td class="right">${fmtMoney(d.giaTri || (d.soLuong || 0) * (d.donGia || 0))}</td>
+    </tr>
+  `).join("");
+
+            app.innerHTML = `
+    <div class="page-header">
+      <div>
+        <h2>🚚 Phiếu xuất: ${h.soCt || ""}</h2>
+        <p class="muted">
+          Ngày PX: <b>${fmtDate(h.ngayXuat)}</b>
+          ${h.donBanSo ? " • Từ đơn bán: <b>" + h.donBanSo + "</b>" : ""}
+        </p>
+      </div>
+      <div class="actions">
+        ${h.donBanId ? `<button class="btn" id="btnBackToSO">← Về đơn bán</button>` : `<button class="btn" id="btnBack">← Quay lại</button>`}
+      </div>
+    </div>
+
+    <div class="card">
+      <header class="card-title">Dòng xuất kho</header>
+      <div class="table-wrap">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>#</th><th>Mã VT</th><th>Tên VT</th><th>ĐVT</th>
+              <th class="right">SL</th><th class="right">Đơn giá</th><th class="right">Giá trị</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rows || `<tr><td colspan="7" class="empty">Không có dòng.</td></tr>`}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  `;
+
+            const back = document.getElementById("btnBackToSO") || document.getElementById("btnBack");
+            if (back) back.addEventListener("click", () => {
+                if (h.donBanId) renderSalesDetail(h.donBanId);
+                else renderSalesList();
+            });
+        }
+
+
+
+        async function saveSalesOrder(trangThai = "draft") {
+            const header = {
+                Id: 0,
+                SoCt: "", // có thể để server tự sinh
+                KhachHangId: khId, // tạm, sẽ thay bằng id thật khi có select KH
+                NgayDon: document.getElementById("txtNgay").value,
+                TrangThai: trangThai
+            };
+
+            const lines = Array.from(document.querySelectorAll("#tblLines tbody tr")).map(tr => ({
+                TenHang: tr.querySelector(".tenHang").value,
+                QuyCach: tr.querySelector(".quyCach").value,
+                SoLuong: parseFloat(tr.querySelector(".soLuong").value) || 0,
+                DonGia: parseFloat(tr.querySelector(".donGia").value) || 0,
+                ThueSuat: parseFloat(tr.querySelector(".thueSuat").value) || 0,
+                ThanhTien: 0
+            }));
+
+            await api("saveSalesOrder", { header, lines });
+            alert("Đã lưu đơn hàng!");
+            renderSalesList();
+        }
+
+
 
         /* ====== BÁN HÀNG: LẬP ĐƠN ====== */
-        function renderSalesCreate() {
+        async function renderSalesCreate() {
             app.innerHTML = `
-                          <div class="page-header">
-                            <div>
-                              <h2>➕ Lập đơn bán hàng</h2>
-                              <p class="muted">Từ báo giá đến hóa đơn và thu tiền (UI mẫu, chưa tính tự động)</p>
-                            </div>
-                            <div class="actions">
-                              <button class="btn" id="btnBackSales">← Danh sách</button>
-                            </div>
-                          </div>
+    <div class="page-header">
+      <div>
+        <h2>➕ Lập đơn hàng in ấn</h2>
+        <p class="muted">Nhập thông tin job in, quy cách kỹ thuật và giá trị đơn hàng</p>
+      </div>
+      <div class="actions">
+        <button class="btn" id="btnBackSales">← Quay lại danh sách</button>
+      </div>
+    </div>
 
-                          <div class="card">
-                            <form class="form">
-                              <div class="grid form-grid">
-                                <label class="field">
-                                  <span>Khách hàng</span>
-                                  <input class="input" placeholder="Nhập tên / mã KH" />
-                                </label>
-                                <label class="field">
-                                  <span>Ngày chứng từ</span>
-                                  <input class="input" type="date" />
-                                </label>
-                                <label class="field">
-                                  <span>Loại chứng từ</span>
-                                  <select class="input">
-                                    <option>Báo giá</option>
-                                    <option selected>Đơn hàng</option>
-                                    <option>Hóa đơn</option>
-                                  </select>
-                                </label>
-                                <label class="field">
-                                  <span>Hợp đồng bán (> 20 triệu)</span>
-                                  <select class="input">
-                                    <option>Không</option>
-                                    <option>Có</option>
-                                  </select>
-                                </label>
-                                <label class="field">
-                                  <span>Ghi chú</span>
-                                  <input class="input" placeholder="Ghi chú nội bộ (tùy chọn)" />
-                                </label>
-                              </div>
+    <div class="card">
+      <form class="form">
+        <div class="grid form-grid">
+          <label class="field" style="position:relative">
+            <span>Khách hàng</span>
+            <div class="input-group" style="display:flex; gap:6px; align-items:center">
+              <input class="input" id="txtKhachHang" placeholder="Nhập tên hoặc mã KH" autocomplete="off" />
+              <button type="button" class="btn" id="btnPickCustomer" title="KH đã từng mua">▼</button>
+            </div>
+            <input type="hidden" id="hidKhachHangId" value="0" />
+            <!-- dropdown gợi ý -->
+            <div id="custDropdown" class="card" style="position:absolute; z-index:50; left:0; right:0; top:100%; display:none; max-height:260px; overflow:auto; margin-top:4px;">
+              <div class="muted" style="padding:8px 12px">Gõ để tìm hoặc chọn mũi tên để xem KH gần đây…</div>
+            </div>
+          </label>
 
-                              <div class="subsection">
-                                <div class="subheader">
-                                  <h3>Dòng hàng (thành phẩm in bao bì)</h3>
-                                  <button type="button" class="btn" id="btnAddSOLine">+ Thêm dòng</button>
-                                </div>
+          <label class="field">
+            <span>Ngày đơn hàng</span>
+            <input class="input" id="txtNgayDon" type="date" value="${new Date().toISOString().split("T")[0]}" />
+          </label>
+          <label class="field full">
+            <span>Ghi chú</span>
+            <input class="input" id="txtGhiChu" placeholder="Ghi chú nội bộ (nếu có)" />
+          </label>
+        </div>
 
-                                <div class="table-wrap">
-                                  <table class="table compact" id="soLines">
-                                    <thead>
-                                      <tr>
-                                        <th>Mã SP</th><th>Tên SP</th><th>Kích thước</th>
-                                        <th>Loại giấy</th><th>Màu in</th><th>Gia công</th>
-                                        <th>SL</th><th>Đơn giá</th><th>VAT</th><th>T.Tiền</th><th></th>
-                                      </tr>
-                                    </thead>
-                                    <tbody>
-                                      <tr class="hint"><td colspan="11">Nhấn “+ Thêm dòng” để thêm sản phẩm (UI tĩnh)</td></tr>
-                                    </tbody>
-                                  </table>
-                                </div>
-                              </div>
+        <div class="subsection">
+          <div class="subheader">
+            <h3>Dòng hàng in ấn (Job in)</h3>
+            <button type="button" class="btn" id="btnAddSOLine">+ Thêm job in</button>
+          </div>
 
-                              <div class="grid form-grid totals">
-                                <label class="field">
-                                  <span>Tổng tiền hàng</span>
-                                  <input class="input" value="₫ 0" disabled />
-                                </label>
-                                <label class="field">
-                                  <span>Thuế VAT</span>
-                                  <input class="input" value="₫ 0" disabled />
-                                </label>
-                                <label class="field">
-                                  <span>Tổng thanh toán</span>
-                                  <input class="input strong" value="₫ 0" disabled />
-                                </label>
-                              </div>
+          <div class="table-wrap">
+            <table class="table compact" id="soLines">
+              <thead>
+                <tr>
+                  <th>Tên hàng in</th><th>Kích thước (D×R×C)</th><th>Chất liệu</th><th>Màu in</th>
+                  <th>Gia công sau in</th><th>SL</th><th>Đơn vị</th><th>Đơn giá</th><th>VAT%</th><th>Tổng</th><th></th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr class="hint"><td colspan="11">Nhấn “+ Thêm job in” để thêm dòng công việc</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
 
-                              <div class="form-actions">
-                                <button type="button" class="btn">Lưu báo giá</button>
-                                <button type="button" class="btn">Xác nhận đơn hàng</button>
-                                <button type="button" class="btn">Xuất hóa đơn</button>
-                                <button type="button" class="btn primary" disabled>Ghi sổ</button>
-                              </div>
-                            </form>
-                          </div>
-                        `;
+        <div class="grid form-grid totals">
+          <label class="field"><span>Tổng tiền hàng</span><input class="input" id="txtTongHang" value="₫ 0" disabled /></label>
+          <label class="field"><span>Thuế VAT</span><input class="input" id="txtThue" value="₫ 0" disabled /></label>
+          <label class="field"><span>Tổng thanh toán</span><input class="input strong" id="txtTongCong" value="₫ 0" disabled /></label>
+        </div>
 
+        <div class="form-actions">
+          <button type="button" class="btn" id="btnSaveDraft">💾 Lưu</button>
+          <button type="button" class="btn primary" id="btnMakeQuote">🧾 Tạo báo giá</button>
+        </div>
+      </form>
+    </div>
+
+    <!-- Modal tạo KH nhanh -->
+    <div id="quickCustomerModal" class="card" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,.35); z-index:60; align-items:center; justify-content:center;">
+      <div class="card" style="min-width:520px; max-width:640px; margin:auto; padding:12px 16px;">
+        <h3>Tạo khách hàng nhanh</h3>
+        <div class="grid form-grid">
+          <label class="field"><span>Tên KH *</span><input class="input" id="qcTen" /></label>
+          <label class="field"><span>Mã KH</span><input class="input" id="qcMa" placeholder="(để trống: tự sinh)"/></label>
+          <label class="field"><span>Điện thoại</span><input class="input" id="qcSDT"/></label>
+          <label class="field"><span>Email</span><input class="input" id="qcEmail"/></label>
+          <label class="field full"><span>Địa chỉ</span><input class="input" id="qcDiaChi"/></label>
+          <label class="field"><span>Mã số thuế</span><input class="input" id="qcMST"/></label>
+        </div>
+        <div class="form-actions">
+          <button class="btn" id="qcCancel">Đóng</button>
+          <button class="btn primary" id="qcCreate">Tạo KH</button>
+        </div>
+      </div>
+    </div>
+  `;
+
+            // back
             document.getElementById("btnBackSales").addEventListener("click", renderSalesList);
 
-            // Thêm dòng mẫu (UI tĩnh)
+            // add line
             const tbody = document.querySelector("#soLines tbody");
-            document.getElementById("btnAddSOLine").addEventListener("click", () => {
+            document.getElementById("btnAddSOLine").addEventListener("click", () => addJobLine(tbody));
+
+            // save buttons
+            document.getElementById("btnSaveDraft").addEventListener("click", () => saveSalesOrder("draft"));
+            document.getElementById("btnMakeQuote").addEventListener("click", () => saveSalesOrder("quote"));
+
+            // ===== Khách hàng: gợi ý & recent =====
+            wireCustomerPicker();
+        }
+
+
+        function renderLine(l = {}) {
+            const tenHang = l.tenHang ?? "";
+            const quyCach = l.quyCach ?? "";
+            const soLuong = l.soLuong ?? 0;
+            const donGia = l.donGia ?? 0;
+            const thueSuat = l.thueSuat ?? 8;
+            const thanhTien = (soLuong * donGia) * (1 + thueSuat / 100);
+
+            return `
+    <tr>
+      <td><input class="input cell tenHang"  value="${tenHang}"></td>
+      <td><input class="input cell quyCach"  value="${quyCach}"></td>
+      <td><input class="input cell soLuong"  type="number" value="${soLuong}"></td>
+      <td><input class="input cell donGia"   type="number" value="${donGia}"></td>
+      <td><input class="input cell thueSuat" type="number" value="${thueSuat}"></td>
+      <td class="right thanhTien">₫ ${isNaN(thanhTien) ? 0 : thanhTien.toLocaleString("vi-VN")}</td>
+      <td><button class="btn link btnDelLine">✖</button></td>
+    </tr>`;
+        }
+
+        function addJobLine(tbody) {
+            tbody.querySelector(".hint")?.remove();
+            tbody.insertAdjacentHTML("beforeend", renderLine({}));
+            const tr = tbody.lastElementChild;
+            // Xóa dòng
+            tr.querySelector(".btnDelLine").addEventListener("click", () => { tr.remove(); calcSalesTotals(); });
+            // Tính lại khi nhập
+            tr.querySelectorAll("input").forEach(inp => inp.addEventListener("input", calcSalesTotals));
+            calcSalesTotals();
+        }
+
+        function calcSalesTotals() {
+            let tongHang = 0, tongThue = 0;
+
+            document.querySelectorAll("#soLines tbody tr, #tblLines tbody tr").forEach(tr => {
+                const sl = parseFloat(tr.querySelector(".soLuong")?.value || 0);
+                const dg = parseFloat(tr.querySelector(".donGia")?.value || 0);
+                const vat = parseFloat(tr.querySelector(".thueSuat")?.value || 0);
+
+                const tienHang = sl * dg;
+                const tienThue = tienHang * (vat / 100);
+                const tt = tienHang + tienThue;
+
+                if (tr.querySelector(".thanhTien")) tr.querySelector(".thanhTien").textContent = "₫ " + (tt || 0).toLocaleString("vi-VN");
+                tongHang += (tienHang || 0);
+                tongThue += (tienThue || 0);
+            });
+
+            const f = (n) => "₫ " + (n || 0).toLocaleString("vi-VN");
+            document.getElementById("txtTongHang") && (document.getElementById("txtTongHang").value = f(tongHang));
+            document.getElementById("txtThue") && (document.getElementById("txtThue").value = f(tongThue));
+            document.getElementById("txtTongCong") && (document.getElementById("txtTongCong").value = f(tongHang + tongThue));
+        }
+        function statusInfo(st) {
+            const map = {
+                draft: { text: "Bản nháp", cls: "muted" },
+                quote: { text: "Báo giá", cls: "info" },
+                confirmed: { text: "Khách xác nhận", cls: "warn" },
+                approved: { text: "QL duyệt", cls: "ok" },
+                in_production: { text: "Đang sản xuất", cls: "warn" },
+                shipped: { text: "Đã xuất kho", cls: "ok" },
+                invoiced: { text: "Đã hóa đơn", cls: "accent" },
+                paid: { text: "Đã thu tiền", cls: "success" },
+                canceled: { text: "Đã hủy", cls: "error" }
+            };
+            return map[st] || { text: st || "", cls: "muted" };
+        }
+        function badgeHtml(st) {
+            const s = statusInfo(st);
+            return `<span class="pill ${s.cls}">${s.text}</span>`;
+        }
+        function on(sel, fn) { const el = document.querySelector(sel); if (el) el.addEventListener("click", fn); }
+        function toggle(sel, show) { const el = document.querySelector(sel); if (el) el.style.display = show ? "" : "none"; }
+
+        function formatDate(iso) {
+            const d = new Date(iso); if (isNaN(d)) return "";
+            return d.toLocaleDateString("vi-VN");
+        }
+        function formatDateInput(iso) {
+            const d = new Date(iso || Date.now()); if (isNaN(d)) return "";
+            return d.toISOString().split("T")[0];
+        }
+        function formatMoney(n) {
+            return (Number(n) || 0).toLocaleString("vi-VN");
+        }
+        function debounce(fn, ms = 300) { let t; return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), ms); }; }
+
+        function renderCustDropdown(items, keyword) {
+            const dd = document.getElementById("custDropdown");
+            if (!dd) return;
+            const rows = (items || []).map(it => `
+    <div class="row" data-id="${it.id}" data-ten="${it.ten}" style="padding:8px 12px; cursor:pointer;">
+      <div><b>${it.ten}</b> <span class="muted">(${it.ma || ""})</span></div>
+      <div class="muted" style="font-size:12px;">${it.soDienThoai || ""} • ${it.email || ""}</div>
+    </div>
+  `).join("");
+
+            const addNew = keyword && keyword.trim().length >= 2
+                ? `<div class="row create" data-keyword="${keyword}" style="padding:8px 12px; cursor:pointer; border-top:1px dashed #ddd;">
+         ➕ Tạo khách hàng mới: <b>${keyword}</b>
+       </div>` : "";
+
+            dd.innerHTML = rows || `<div class="muted" style="padding:8px 12px">Không tìm thấy kết quả.</div>`;
+            dd.innerHTML += addNew;
+            dd.style.display = "block";
+
+            // chọn KH
+            dd.querySelectorAll(".row[data-id]").forEach(el => {
+                el.addEventListener("click", () => {
+                    document.getElementById("hidKhachHangId").value = el.dataset.id;
+                    document.getElementById("txtKhachHang").value = el.dataset.ten;
+                    dd.style.display = "none";
+                });
+            });
+
+            // tạo mới nhanh
+            const createEl = dd.querySelector(".row.create");
+            if (createEl) {
+                createEl.addEventListener("click", () => {
+                    openQuickCustomerModal(createEl.dataset.keyword);
+                });
+            }
+        }
+
+        function wireCustomerPicker() {
+            const input = document.getElementById("txtKhachHang");
+            const dd = document.getElementById("custDropdown");
+            const btn = document.getElementById("btnPickCustomer");
+
+            // gõ để tìm
+            input.addEventListener("input", debounce(async () => {
+                const q = input.value.trim();
+                if (q.length < 2) { dd.style.display = "none"; return; }
+                const res = await api("searchCustomers", { q, limit: 10 });
+                renderCustDropdown(res.items || [], q);
+            }, 300));
+
+            // mũi tên: KH đã từng mua
+            btn.addEventListener("click", async () => {
+                const res = await api("recentCustomers", { limit: 12 });
+                renderCustDropdown(res.items || [], input.value.trim());
+            });
+
+            // click ngoài: đóng
+            document.addEventListener("click", (e) => {
+                if (!dd.contains(e.target) && !input.contains(e.target) && !btn.contains(e.target)) {
+                    dd.style.display = "none";
+                }
+            });
+        }
+
+        function openQuickCustomerModal(prefillName) {
+            const modal = document.getElementById("quickCustomerModal");
+            modal.style.display = "flex";
+            document.getElementById("qcTen").value = prefillName || "";
+            document.getElementById("qcMa").value = "";
+            document.getElementById("qcSDT").value = "";
+            document.getElementById("qcEmail").value = "";
+            document.getElementById("qcDiaChi").value = "";
+            document.getElementById("qcMST").value = "";
+
+            document.getElementById("qcCancel").onclick = () => modal.style.display = "none";
+            document.getElementById("qcCreate").onclick = async () => {
+                const payload = {
+                    Ten: document.getElementById("qcTen").value.trim(),
+                    Ma: document.getElementById("qcMa").value.trim(),
+                    SoDienThoai: document.getElementById("qcSDT").value.trim(),
+                    Email: document.getElementById("qcEmail").value.trim(),
+                    DiaChi: document.getElementById("qcDiaChi").value.trim(),
+                    MaSoThue: document.getElementById("qcMST").value.trim()
+                };
+                if (!payload.Ten) { alert("Tên khách hàng bắt buộc."); return; }
+                const res = await api("quickCreateCustomer", payload);
+                if (!res || res.error) { alert(res?.error || "Không tạo được khách hàng."); return; }
+                // set lại KH đã chọn
+                document.getElementById("hidKhachHangId").value = res.id;
+                document.getElementById("txtKhachHang").value = payload.Ten;
+                modal.style.display = "none";
+            };
+        }
+
+
+        // ====== thêm dòng job in ======
+        function addJobLine(tbody) {
+            const tr = document.createElement("tr");
+            tr.innerHTML = `
+    <td><input class="input cell tenHang" placeholder="Tên hàng in..." /></td>
+    <td><input class="input cell kichThuoc" placeholder="20x30x10 cm" /></td>
+    <td><input class="input cell chatLieu" placeholder="Duplex 350gsm" /></td>
+    <td><input class="input cell mauIn" placeholder="4 màu" /></td>
+    <td><input class="input cell giaCong" placeholder="Cán - Bế - Dán" /></td>
+    <td><input class="input cell right soLuong" type="number" placeholder="5000" /></td>
+    <td><input class="input cell dvt" placeholder="chiếc" /></td>
+    <td><input class="input cell right donGia" type="number" placeholder="15000" /></td>
+    <td><select class="input cell thueSuat">
+          <option>0</option><option selected>8</option><option>10</option>
+        </select></td>
+    <td class="right thanhTien">₫ 0</td>
+    <td><button type="button" class="btn link">✖</button></td>
+  `;
+            tbody.querySelector(".hint")?.remove();
+            tbody.appendChild(tr);
+
+            // xóa dòng
+            tr.querySelector(".btn.link").addEventListener("click", () => {
+                tr.remove();
+                calcSalesTotals();
+            });
+
+            // tính lại khi nhập dữ liệu
+            tr.querySelectorAll("input, select").forEach(inp => {
+                inp.addEventListener("input", calcSalesTotals);
+            });
+        }
+
+        // ====== tính tổng đơn hàng ======
+        function calcSalesTotals() {
+            let tongHang = 0, tongThue = 0;
+
+            document.querySelectorAll("#soLines tbody tr").forEach(tr => {
+                const soLuong = parseFloat(tr.querySelector(".soLuong")?.value || 0);
+                const donGia = parseFloat(tr.querySelector(".donGia")?.value || 0);
+                const vat = parseFloat(tr.querySelector(".thueSuat")?.value || 0);
+
+                const tienHang = soLuong * donGia;
+                const tienThue = (tienHang * vat) / 100;
+                const thanhTien = tienHang + tienThue;
+
+                if (!isNaN(thanhTien)) {
+                    tr.querySelector(".thanhTien").textContent = "₫ " + thanhTien.toLocaleString("vi-VN");
+                    tongHang += tienHang;
+                    tongThue += tienThue;
+                }
+            });
+
+            document.getElementById("txtTongHang").value = "₫ " + tongHang.toLocaleString("vi-VN");
+            document.getElementById("txtThue").value = "₫ " + tongThue.toLocaleString("vi-VN");
+            document.getElementById("txtTongCong").value = "₫ " + (tongHang + tongThue).toLocaleString("vi-VN");
+        }
+
+        // ====== lưu đơn hàng lên server ======
+        async function saveSalesOrder(trangThai) {
+            const header = {
+                Id: 0,
+                SoCt: "", // có thể để server tự sinh
+                KhachHangId: 1, // tạm thời hardcode (sẽ làm chọn khách hàng sau)
+                NgayDon: document.getElementById("txtNgayDon").value,
+                TrangThai: trangThai,
+                GhiChu: document.getElementById("txtGhiChu").value
+            };
+
+            const lines = Array.from(document.querySelectorAll("#soLines tbody tr")).map(tr => ({
+                TenHang: tr.querySelector(".tenHang")?.value || "",
+                QuyCach: [
+                    "KT:" + tr.querySelector(".kichThuoc")?.value,
+                    "Giấy:" + tr.querySelector(".chatLieu")?.value,
+                    "Màu:" + tr.querySelector(".mauIn")?.value,
+                    "GC:" + tr.querySelector(".giaCong")?.value
+                ].join("; "),
+                SoLuong: parseFloat(tr.querySelector(".soLuong")?.value || 0),
+                DonViTinh: tr.querySelector(".dvt")?.value || "",
+                DonGia: parseFloat(tr.querySelector(".donGia")?.value || 0),
+                ThueSuat: parseFloat(tr.querySelector(".thueSuat")?.value || 0)
+            }));
+
+            if (!lines.length) {
+                alert("Chưa có dòng job in nào!");
+                return;
+            }
+
+            await api("saveSalesOrder", { header, lines });
+            alert("✅ Đã lưu đơn hàng!");
+            renderSalesList();
+        }
+
+
+
+        /* ====== KHO: DANH SÁCH ====== */
+        /* ====== KHO: DANH SÁCH (động) ====== */
+        /* ====== KHO: DANH SÁCH (động) ====== */
+        /* ====== KHO: DANH SÁCH (động) — FULL ====== */
+        async function renderInventoryList(filters = {}) {
+            // lấy giá trị mặc định từ localStorage, cho phép override qua filters
+            const { type = "all", q = "", hideZero: hideZeroArg } = filters;
+            const hideZero = (typeof hideZeroArg === "boolean")
+                ? hideZeroArg
+                : (localStorage.getItem("inv_hide_zero") || "false") === "true";
+
+            // gọi backend — truyền luôn hideZero để server có thể lọc
+            const inv = await api("getInventorySummary", { type, loai: type, q, hideZero });
+            const itemsRaw = Array.isArray(inv?.items) ? inv.items : [];
+
+            // ==== LỌC CLIENT-SIDE (fallback nếu backend chưa lọc) ====
+            const itemsFiltered = itemsRaw.filter(it => {
+                // xác định loại (thành phẩm vs vật tư)
+                const isTp =
+                    (typeof it.isThanhPham === "boolean") ? it.isThanhPham :
+                        (it.loai === "thanh_pham" || it.type === "thanh_pham");
+
+                const passType =
+                    type === "all" ||
+                    (type === "thanh_pham" && isTp === true) ||
+                    (type === "vat_tu" && isTp === false);
+
+                const qq = (q || "").trim().toLowerCase();
+                const passQ = !qq || [it.ma, it.ten].some(v => (v || "").toLowerCase().includes(qq));
+
+                const passZero = hideZero ? ((it.ton ?? 0) !== 0) : true;
+
+                return passType && passQ && passZero;
+            });
+
+            // render từng dòng
+            const rowHtml = itemsFiltered.map(it => {
+                const ton = it.ton ?? 0;
+                const minTon = it.minTon ?? 0;
+                const stt = computeInvStatus(ton, minTon); // { label, cls }
+                const id = it.id ?? it.ma; // fallback nếu chưa có id
+
+                return `
+      <tr data-id="${id}">
+        <td>${it.ma || ""}</td>
+        <td>${it.ten || ""}</td>
+        <td>${it.dvtTen || ""}</td>
+        <td class="right">${ton.toLocaleString("vi-VN")}</td>
+        <td class="min-editor">
+          <input class="input cell min-ton" type="number" min="0" step="1"
+                 value="${minTon}" data-id="${id}" />
+          <button class="btn link btn-save-min" data-id="${id}" title="Lưu ngưỡng">Lưu</button>
+        </td>
+        <td class="right">
+          <span class="tag ${stt.cls}">${stt.label}</span>
+        </td>
+        <td class="right">
+          ${(it.giaTriTon ?? 0).toLocaleString("vi-VN", { style: "currency", currency: "VND" })}
+        </td>
+      </tr>
+    `;
+            }).join("");
+
+            // ==== UI ====
+            app.innerHTML = `
+    <style>
+      .tag{display:inline-block;padding:2px 8px;border-radius:12px;font-size:12px}
+      .tag.ok{background:#e7f7ee;color:#107d3e}
+      .tag.warn{background:#fff4e5;color:#b45d00}
+      .tag.empty{background:#ffe9e9;color:#c62828}
+      .min-editor{display:flex;gap:6px;align-items:center;justify-content:flex-end}
+      .min-editor .input{max-width:100px;text-align:right}
+    </style>
+
+    <div class="page-header">
+      <div>
+        <h2>📦 Kho</h2>
+        <p class="muted">Theo dõi Nhập – Xuất – Tồn, lệnh sản xuất, chỉnh ngưỡng cảnh báo</p>
+      </div>
+      <div class="actions">
+        <div class="btn-group">
+          <button class="btn" id="btnMo">⚙️ Lệnh sản xuất</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="toolbar">
+      <input class="input" id="invSearch" placeholder="Tìm theo mã / tên hàng…" value="${q}">
+      <select class="input" id="invType">
+        <option value="all"${type === "all" ? " selected" : ""}>Tất cả</option>
+        <option value="vat_tu"${type === "vat_tu" ? " selected" : ""}>Vật tư</option>
+        <option value="thanh_pham"${type === "thanh_pham" ? " selected" : ""}>Thành phẩm</option>
+      </select>
+
+      <label class="input" style="display:flex;gap:8px;align-items:center;margin-left:8px;">
+        <input type="checkbox" id="chkHideZero" ${hideZero ? "checked" : ""}/>
+        Ẩn hàng tồn = 0
+      </label>
+
+      <div class="spacer"></div>
+      <button class="btn" id="btnRefresh">Làm mới</button>
+    </div>
+
+    <div class="card">
+      <header class="card-title">📦 Vật tư / hàng hóa trong kho</header>
+      <div class="table-wrap">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Mã</th>
+              <th>Tên</th>
+              <th>ĐVT</th>
+              <th class="right">Tồn</th>
+              <th class="right">Ngưỡng</th>
+              <th class="right">Trạng thái</th>
+              <th class="right">Giá trị tồn (ước)</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rowHtml || `<tr><td colspan="7" class="empty">Chưa có dữ liệu tồn (hãy nhập kho).</td></tr>`}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  `;
+
+            // ===== events =====
+            const rerender = () => renderInventoryList({
+                type: document.getElementById("invType").value,
+                q: document.getElementById("invSearch").value.trim(),
+                hideZero: document.getElementById("chkHideZero").checked
+            });
+
+            document.getElementById("btnRefresh").addEventListener("click", rerender);
+            document.getElementById("invType").addEventListener("change", rerender);
+            document.getElementById("invSearch").addEventListener("keydown", e => {
+                if (e.key === "Enter") rerender();
+            });
+            document.getElementById("chkHideZero").addEventListener("change", (e) => {
+                localStorage.setItem("inv_hide_zero", e.target.checked ? "true" : "false");
+                rerender();
+            });
+            document.getElementById("btnMo").addEventListener("click", () => renderMoList());
+
+            // LƯU NGƯỠNG
+            document.querySelectorAll(".btn-save-min").forEach(btn => {
+                btn.addEventListener("click", async (e) => {
+                    const id = e.currentTarget.dataset.id;
+                    const input = document.querySelector(`.min-ton[data-id="${CSS.escape(id)}"]`);
+                    if (!input) return;
+                    await saveMinTon(id, input.value);
+                    rerender();
+                });
+            });
+            document.querySelectorAll(".min-ton").forEach(inp => {
+                inp.addEventListener("keydown", async (e) => {
+                    if (e.key === "Enter") {
+                        e.preventDefault();
+                        await saveMinTon(e.currentTarget.dataset.id, e.currentTarget.value);
+                        rerender();
+                    }
+                });
+            });
+        }
+
+        async function saveMinTon(id, val) {
+            const v = Number(val);
+            if (!Number.isFinite(v) || v < 0) { alert("Ngưỡng tồn không hợp lệ!"); return; }
+            try {
+                await api("updateInventoryMin", { id, minTon: v });
+            } catch (err) {
+                const msg = String(err || "");
+                // backend chưa có cmd -> bỏ qua thay vì alert
+                if (msg.includes("Unknown cmd") && msg.includes("updateInventoryMin")) {
+                    console.warn("Bỏ qua: backend chưa có updateInventoryMin");
+                    return;
+                }
+                console.error(err);
+                alert("Cập nhật ngưỡng thất bại.");
+            }
+        }
+
+        /* === Helpers cần kèm theo === */
+        function computeInvStatus(ton, minTon) {
+            if ((ton ?? 0) <= 0) return { label: "Hết hàng", cls: "empty" };
+            if (ton < (minTon ?? 0)) return { label: "Thấp", cls: "warn" };
+            return { label: "OK", cls: "ok" };
+        }
+
+        async function saveMinTon(id, val) {
+            const v = Number(val);
+            if (!Number.isFinite(v) || v < 0) {
+                alert("Ngưỡng tồn không hợp lệ!");
+                return;
+            }
+            try {
+                await api("updateInventoryMin", { id, minTon: v });
+            } catch (err) {
+                console.error(err);
+                alert("Cập nhật ngưỡng thất bại.");
+            }
+        }
+
+
+        /* === Helpers === */
+        function computeInvStatus(ton, minTon) {
+            if ((ton ?? 0) <= 0) return { label: "Hết hàng", cls: "empty" };
+            if (ton < (minTon ?? 0)) return { label: "Thấp", cls: "warn" };
+            return { label: "OK", cls: "ok" };
+        }
+
+        async function saveMinTon(id, val) {
+            const v = Number(val);
+            if (!Number.isFinite(v) || v < 0) {
+                // báo lỗi nhẹ, không chặn UI
+                console.warn("Ngưỡng tồn không hợp lệ:", val);
+                return;
+            }
+            try {
+                await api("updateInventoryMin", { id, minTon: v });
+                // TODO: nếu có hệ thống toast, show "Đã lưu ngưỡng"
+            } catch (err) {
+                const msg = String(err?.message || err || "");
+                // Trường hợp backend chưa triển khai/thiếu cột -> không popup
+                if (msg.includes("Unknown cmd") || msg.includes("missing_column") || msg.toLowerCase().includes("exception")) {
+                    console.warn("Bỏ qua lưu ngưỡng (backend chưa sẵn):", msg);
+                    return;
+                }
+                // các lỗi khác mới báo
+                console.error(err);
+                // alert("Cập nhật ngưỡng thất bại."); // nếu muốn hard alert thì mở lại
+            }
+        }
+
+
+        /* (tạm) Lệnh sản xuất: danh sách + nút tạo — có thể nối API sau */
+        // ===== MO: DANH SÁCH =====
+        async function renderMoList(filters = {}) {
+            const { q = "", status = "all" } = filters;
+            const data = await api("getMoList", { q, status }, { silent: true });
+            const items = data?.items || [];
+
+            const fmt = (n) => (Number(n) || 0).toLocaleString("vi-VN");
+            const badgeStatus = (st) => {
+                const map = { pending: "muted", processing: "warn", done: "success", canceled: "error" };
+                const cls = map[st] || "muted";
+                return `<span class="pill ${cls}">${st || "pending"}</span>`;
+            };
+
+            const rows = items.map(m => `
+    <tr data-id="${m.id}">
+      <td><span class="badge">${m.ma}</span></td>
+      <td>${m.ngayLenh || ""}</td>
+      <td>${m.ngayIn || ""}</td>
+      <td>${m.tenKhachHang || ""}</td>
+      <td>${m.tenBaiIn || ""}</td>
+      <td>${m.tenGiayIn || ""}</td>
+      <td>${m.khoIn || ""}</td>
+      <td class="right">${fmt(m.soMauIn)}</td>
+      <td>${m.hinhThucIn || ""}</td>
+      <td class="right">${fmt(m.soCon)}</td>
+      <td>${m.mayIn || ""}</td>
+      <td class="right">${fmt(m.soLuongKeHoach)}</td>
+      <td class="right">${fmt(m.soLuongThanhPham)}</td>
+      <td>${badgeStatus(m.trangThai)}</td>
+    </tr>
+  `).join("");
+
+            app.innerHTML = `
+    <div class="page-header">
+      <div>
+        <h2>⚙️ Lệnh sản xuất (In)</h2>
+        <p class="muted">Danh sách lệnh in kèm thông tin ngành in</p>
+      </div>
+      <div class="actions">
+        <button class="btn" id="btnBackInv">← Kho</button>
+        <button class="btn primary" id="btnNewMo">+ Tạo lệnh sản xuất</button>
+      </div>
+    </div>
+
+    <div class="toolbar">
+      <input class="input" id="moSearch" placeholder="Tìm mã lệnh / KH / bài in / máy in…" value="${q}">
+      <select class="input" id="moStatus">
+        <option value="all"${status === "all" ? " selected" : ""}>Tất cả</option>
+        <option value="pending"${status === "pending" ? " selected" : ""}>Chờ</option>
+        <option value="processing"${status === "processing" ? " selected" : ""}>Đang chạy</option>
+        <option value="done"${status === "done" ? " selected" : ""}>Hoàn tất</option>
+        <option value="canceled"${status === "canceled" ? " selected" : ""}>Hủy</option>
+      </select>
+      <div class="spacer"></div>
+      <button class="btn" id="btnRefreshMo">Làm mới</button>
+    </div>
+
+    <div class="card">
+      <div class="table-wrap">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Mã</th><th>Ngày lệnh</th><th>Ngày in</th>
+              <th>KH</th><th>Tên bài in</th><th>Tên giấy in</th><th>Khổ in</th>
+              <th class="right">Số màu</th><th>Hình thức</th><th class="right">Số con</th>
+              <th>Máy in</th>
+              <th class="right">SL kế hoạch</th>
+              <th class="right">SL thành phẩm</th>
+              <th>Trạng thái</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rows || `<tr><td colspan="14" class="empty">Chưa có lệnh nào.</td></tr>`}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  `;
+
+            document.getElementById("btnBackInv").addEventListener("click", () => renderInventoryList());
+            document.getElementById("btnNewMo").addEventListener("click", () => renderMoCreate());
+
+            const reload = () => renderMoList({
+                q: document.getElementById("moSearch").value.trim(),
+                status: document.getElementById("moStatus").value
+            });
+            document.getElementById("btnRefreshMo").addEventListener("click", reload);
+            document.getElementById("moStatus").addEventListener("change", reload);
+            document.getElementById("moSearch").addEventListener("keydown", e => { if (e.key === "Enter") reload(); });
+
+            // click hàng để xem chi tiết
+            document.querySelectorAll("tbody tr[data-id]").forEach(tr => {
+                tr.style.cursor = "pointer";
+                tr.addEventListener("click", () => {
+                    const id = Number(tr.getAttribute("data-id"));
+                    renderMoDetail(id);
+                });
+            });
+        }
+
+
+        async function renderMoDetail(moId) {
+            const data = await api("getMoDetail", { id: moId }, { silent: false });
+            if (!data || data.error) {
+                alert(data?.message || "Không tải được chi tiết lệnh.");
+                return;
+            }
+
+            const h = data.header || {};
+            const lines = data.lines || [];
+            const fmt = (n) => {
+                const v = Number(n);
+                return isFinite(v) ? v.toLocaleString("vi-VN") : "0";
+            };
+            const badge = (st) => {
+                const map = { pending: "muted", processing: "warn", done: "success", canceled: "error" };
+                return `<span class="pill ${map[st] || "muted"}">${st || "pending"}</span>`;
+            };
+
+            const rowHtml = lines.map(l => `
+    <tr>
+      <td>${l.vatTuMa || ""}</td>
+      <td>${l.vatTuTen || ""}</td>
+      <td>${l.dvtTen || ""}</td>
+      <td class="right">${fmt(l.heSo)}</td>
+      <td class="right">${fmt(l.slCan)}</td>
+      <td class="right">${fmt(l.ton)}</td>
+      <td class="right ${(+l.thieu > 0 ? "error" : "")}">${fmt(l.thieu)}</td>
+      <td>${l.ghiChu || ""}</td>
+    </tr>
+  `).join("");
+
+            const anyLack = lines.some(l => (Number(l.thieu) || 0) > 0);
+            const canApprove = (h.trangThai === "pending");
+            const canComplete = (h.trangThai === "processing");
+
+            app.innerHTML = `
+    <div class="page-header">
+      <div>
+        <h2>📄 Chi tiết lệnh: ${h.ma || ""} ${badge(h.trangThai)}</h2>
+        <p class="muted">${h.tenKhachHang || ""} — ${h.tenBaiIn || ""}</p>
+      </div>
+      <div class="actions">
+        <button class="btn" id="btnBackMo">← Danh sách</button>
+      </div>
+    </div>
+
+    <div class="grid two-col">
+      <div class="card">
+        <header class="card-title">Thông tin chung</header>
+        <div class="grid form-grid">
+          <div><b>Ngày lệnh:</b> ${h.ngayLenh || ""}</div>
+          <div><b>Ngày in:</b> ${h.ngayIn || ""}</div>
+          <div><b>Khách hàng:</b> ${h.tenKhachHang || ""}</div>
+          <div><b>Tên bài in:</b> ${h.tenBaiIn || ""}</div>
+          <div><b>Tên giấy in:</b> ${h.tenGiayIn || ""}</div>
+          <div><b>Khổ in:</b> ${h.khoIn || ""}</div>
+          <div><b>Số màu in:</b> ${fmt(h.soMauIn)}</div>
+          <div><b>Hình thức in:</b> ${h.hinhThucIn || ""}</div>
+          <div><b>Số con:</b> ${fmt(h.soCon)}</div>
+          <div><b>Máy in:</b> ${h.mayIn || ""}</div>
+          <div><b>SL kế hoạch (TP):</b> ${fmt(h.soLuongKeHoach)}</div>
+          <div><b>SL thành phẩm (thực tế):</b> ${fmt(h.soLuongThanhPham || 0)}</div>
+          <div style="grid-column:1/-1"><b>Thành phẩm:</b> ${(h.sanPhamMa || "") + (h.sanPhamTen ? " — " + h.sanPhamTen : "")}</div>
+          ${h.note ? `<div style="grid-column:1/-1"><b>Ghi chú:</b> ${h.note}</div>` : ""}
+        </div>
+      </div>
+
+      <div class="card">
+        <header class="card-title">Thao tác</header>
+
+        ${anyLack && canApprove ? `
+        <div class="callout error" style="margin-bottom:12px">
+          ⚠️ Đang <b>thiếu nguyên liệu</b>, không thể duyệt lệnh. Hãy bổ sung tồn hoặc giảm SL kế hoạch.
+        </div>` : ""}
+
+        <div class="grid form-grid">
+          <div style="grid-column:1/-1">
+            <b>Trạng thái hiện tại:</b> ${badge(h.trangThai)}
+          </div>
+
+          <div style="display:${canApprove ? "block" : "none"}">
+            <button class="btn primary" id="btnApproveMo">✅ Duyệt lệnh (trừ vật tư)</button>
+            <p class="muted" style="margin-top:6px">
+              Khi duyệt: hệ thống <b>xuất vật tư theo SL kế hoạch</b> (chưa nhập thành phẩm) và chuyển trạng thái sang <b>đang sản xuất</b>.
+            </p>
+          </div>
+
+          <div style="display:${canComplete ? "block" : "none"}">
+            <label class="field">
+              <span>Nhập SL thành phẩm <i>(thực tế)</i></span>
+              <input class="input" id="tpThucTe" type="number" min="1" step="0.001" value="${h.soLuongKeHoach || 0}">
+            </label>
+            <button class="btn success" id="btnCompleteMo">🎉 Hoàn thành (cộng TP & hoàn nhập vật tư dư)</button>
+            <p class="muted" style="margin-top:6px">
+              Khi hoàn thành: hệ thống <b>nhập kho thành phẩm</b> theo SL thực tế, 
+              <b>tính lại vật tư</b> theo định mức × SL thực tế và <b>nhập trả phần vật tư đã trừ lố</b> (nếu có),
+              rồi chuyển trạng thái sang <b>hoàn thành</b>.
+            </p>
+          </div>
+
+          ${(!canApprove && !canComplete) ? `
+            <div class="muted">Lệnh ở trạng thái <b>${h.trangThai}</b>. Không còn thao tác khả dụng.</div>` : ""}
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <header class="card-title">Vật tư & tính toán</header>
+      <div class="table-wrap">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Mã VT</th><th>Tên VT</th><th>ĐVT</th>
+              <th class="right">Hệ số</th>
+              <th class="right">SL cần</th>
+              <th class="right">Tồn</th>
+              <th class="right">Thiếu</th>
+              <th>Ghi chú</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rowHtml || `<tr><td colspan="8" class="empty">Chưa có định mức.</td></tr>`}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  `;
+
+            // Events
+            document.getElementById("btnBackMo").addEventListener("click", () => renderMoList());
+            const refresh = () => renderMoDetail(moId);
+
+            // Duyệt
+            document.getElementById("btnApproveMo")?.addEventListener("click", async () => {
+                if (anyLack) { alert("Đang thiếu nguyên liệu, không thể duyệt."); return; }
+                if (!confirm("Duyệt lệnh này? Hệ thống sẽ trừ vật tư theo SL kế hoạch.")) return;
+                const res = await api("approveMo", { id: moId });
+                if (res?.ok) { alert("Đã duyệt lệnh. Vật tư đã được trừ."); refresh(); }
+                else { alert(res?.message || res?.error || "Duyệt lệnh thất bại."); }
+            });
+
+            // Hoàn thành
+            document.getElementById("btnCompleteMo")?.addEventListener("click", async () => {
+                const qty = Number(document.getElementById("tpThucTe").value) || 0;
+                if (qty <= 0) { alert("Vui lòng nhập SL thành phẩm thực tế hợp lệ."); return; }
+                if (!confirm(`Hoàn thành lệnh với SL TP thực tế = ${fmt(qty)} ?`)) return;
+
+                // LƯU Ý: backend nhận tham số tên là slTp
+                const res = await api("completeMo", { id: moId, slTp: qty });
+                if (res?.ok) { alert("Đã hoàn thành lệnh. Thành phẩm đã nhập kho, vật tư dư được hoàn trả."); refresh(); }
+                else { alert(res?.message || res?.error || "Hoàn thành lệnh thất bại."); }
+            });
+        }
+
+
+        // ===== MO: FORM TẠO =====
+        async function renderMoCreate(preset = null) {
+            // ==== Prefill từ preset (nếu có) ====
+            const ph = (preset && preset.header) ? preset.header : {};
+            const soId = Number(ph.soId || 0);
+
+            const soCt = preset?.header?.soCt || "";
+
+            // Lấy danh mục ĐVT + Vật tư
+            const dm = await api("getVatTu", {}, { silent: true });
+            const vatTuDm = dm?.vatTu || dm?.items || []; // linh hoạt tên trả về
+            const dvt = dm?.dvt || [];
+            const dvtMap = Object.fromEntries(dvt.map(x => [x.id, x.ten]));
+            const dvtOptions = dvt.map(x => `<option value="${x.id}">${x.ten}</option>`).join("");
+            const vtOptions = vatTuDm
+                .map(v => `<option value="${v.id}" data-dvt="${v.donViTinhId}">${v.ma} — ${v.ten}</option>`)
+                .join("");
+
+            const fmt = (n) => (Number(n) || 0).toLocaleString("vi-VN");
+            const today = () => new Date().toISOString().slice(0, 10);
+
+            app.innerHTML = `
+    <div class="page-header">
+      <div>
+        <h2>⚙️ Tạo lệnh sản xuất (In)</h2>
+        <p class="muted">
+          ${soId ? `Sinh từ đơn bán: <b>${ph.soCt || ("#" + soId)}</b>` : "Luôn tạo Thành phẩm mới cho từng khách hàng."}
+          Khai báo định mức vật tư (hệ số/1 TP).
+        </p>
+      </div>
+      <div class="actions">
+        <button class="btn" id="btnBackMo">← Danh sách</button>
+        <button class="btn" id="btnCheckMat">🔎 Kiểm tra nguyên liệu</button>
+        <button class="btn primary" id="btnSaveMo">💾 Lưu lệnh</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <form class="form">
+        <div class="grid form-grid">
+          <input type="hidden" id="moSoId" value="${soId}">
+          <label class="field">
+            <span>Ngày lệnh</span>
+            <input type="date" class="input" id="moNgayLenh" value="${ph.ngayLenh ? new Date(ph.ngayLenh).toISOString().slice(0, 10) : today()}">
+          </label>
+          <label class="field">
+            <span>Ngày in</span>
+            <input type="date" class="input" id="moNgayIn" value="${ph.ngayIn ? new Date(ph.ngayIn).toISOString().slice(0, 10) : ""}">
+          </label>
+          <label class="field">
+            <span>SL kế hoạch (TP)</span>
+            <input type="number" class="input" id="moQtyKH" min="0" step="0.001" value="${ph.soLuongKeHoach ?? 0}">
+          </label>
+
+          <label class="field"><span>Tên khách hàng</span>
+            <input class="input" id="moTenKH" value="${ph.khachHang || ph.khach || ""}">
+          </label>
+          <label class="field"><span>Tên bài in</span>
+            <input class="input" id="moTenBaiIn" value="${ph.tenBaiIn || ""}">
+          </label>
+          <label class="field"><span>Tên giấy in</span>
+            <input class="input" id="moTenGiayIn" value="${ph.tenGiayIn || ""}">
+          </label>
+          <label class="field"><span>Khổ in</span>
+            <input class="input" id="moKhoIn" placeholder="vd: 65x86cm" value="${ph.khoIn || ""}">
+          </label>
+
+          <label class="field"><span>Số màu in</span>
+            <input type="number" class="input" id="moSoMauIn" min="0" step="1" value="${ph.soMauIn ?? 4}">
+          </label>
+          <label class="field"><span>Hình thức in</span>
+            <input class="input" id="moHinhThucIn" placeholder="Offset / Flexo …" value="${ph.hinhThucIn || ""}">
+          </label>
+          <label class="field"><span>Số con</span>
+            <input type="number" class="input" id="moSoCon" min="0" step="1" value="${ph.soCon ?? 0}">
+          </label>
+          <label class="field"><span>Máy in</span>
+            <input class="input" id="moMayIn" placeholder="Heidelberg…" value="${ph.mayIn || ""}">
+          </label>
+
+          <label class="field" style="grid-column:1/-1">
+            <span>Ghi chú</span><input class="input" id="moNote" placeholder="Ghi chú (tùy chọn)" value="${ph.note || ""}">
+          </label>
+        </div>
+
+        <div class="subsection">
+          <div class="subheader"><h3>Thành phẩm mới</h3></div>
+          <div class="grid" style="grid-template-columns: repeat(3, minmax(0,1fr)); gap:12px">
+            <label class="field">
+              <span>Mã TP (để trống sẽ tự sinh)</span>
+              <input class="input" id="tpMa" placeholder="TP-..." value="${ph.tpMa || ""}">
+            </label>
+            <label class="field">
+              <span>Tên TP</span>
+              <input class="input" id="tpTen" placeholder="Tên thành phẩm" value="${ph.tpTen || (ph.tenBaiIn || "")}">
+            </label>
+            <label class="field">
+              <span>ĐVT</span>
+              <select class="input" id="tpDvt">
+                ${dvtOptions}
+              </select>
+            </label>
+          </div>
+        </div>
+
+        <div class="subsection">
+          <div class="subheader">
+            <h3>Định mức vật tư (hệ số/1 TP)</h3>
+            <button type="button" class="btn" id="btnAddLine">+ Thêm vật tư</button>
+          </div>
+          <div class="table-wrap">
+            <table class="table compact" id="moLines">
+              <thead>
+                <tr>
+                  <th>Vật tư</th>
+                  <th>ĐVT</th>
+                  <th class="right">Hệ số /1 TP</th>
+                  <th class="right">SL cần</th>
+                  <th class="right">Tồn</th>
+                  <th class="right">Thiếu</th>
+                  <th>Ghi chú</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr class="hint"><td colspan="8">Nhấn “+ Thêm vật tư” để khai báo định mức</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </form>
+    </div>
+  `;
+
+            // set DVT default cho TP (nếu có trong preset)
+            if (ph.tpDvtId) {
+                const tpDvtSel = document.getElementById("tpDvt");
+                if (tpDvtSel && [...tpDvtSel.options].some(o => Number(o.value) === Number(ph.tpDvtId))) {
+                    tpDvtSel.value = String(ph.tpDvtId);
+                }
+            }
+
+            // ====== Event basics ======
+            on("#btnBackMo", () => renderMoList());
+
+            const tbody = document.querySelector("#moLines tbody");
+
+            function addLine(v = { vatTuId: "", heSo: "", note: "" }) {
                 const tr = document.createElement("tr");
                 tr.innerHTML = `
-                            <td><input class="input cell" placeholder="SP001" /></td>
-                            <td><input class="input cell" placeholder="Hộp giấy Duplex" /></td>
-                            <td><input class="input cell" placeholder="20 x 30 x 10 cm" /></td>
-                            <td><input class="input cell" placeholder="Duplex 300gsm" /></td>
-                            <td><input class="input cell" placeholder="4C" /></td>
-                            <td><input class="input cell" placeholder="Cán-Bế-Dán" /></td>
-                            <td><input class="input cell" type="number" placeholder="5000" /></td>
-                            <td><input class="input cell" type="number" placeholder="15000" /></td>
-                            <td>
-                              <select class="input cell">
-                                <option>0%</option><option selected>8%</option><option>10%</option>
-                              </select>
-                            </td>
-                            <td class="right">₫ 0</td>
-                            <td><button type="button" class="btn link">Xóa</button></td>
-                          `;
+      <td>
+        <select class="input vtSel">
+          <option value="">-- chọn vật tư --</option>
+          ${vtOptions}
+        </select>
+      </td>
+      <td class="dvtCell muted"></td>
+      <td class="right"><input type="number" class="input cell hsInp" min="0" step="0.0001" value="${v.heSo || ""}"></td>
+      <td class="right needCell">0</td>
+      <td class="right stockCell">0</td>
+      <td class="right lackCell">0</td>
+      <td><input class="input cell noteInp" value="${v.note || ""}"></td>
+      <td><button type="button" class="btn link btnDel">Xóa</button></td>
+    `;
                 tbody.querySelector(".hint")?.remove();
                 tbody.appendChild(tr);
-            });
-        }
 
-        function renderInventoryList() {
+                const sel = tr.querySelector(".vtSel");
+                const dvtCell = tr.querySelector(".dvtCell");
+                const hsInp = tr.querySelector(".hsInp");
+                const needCell = tr.querySelector(".needCell");
+                const stockCell = tr.querySelector(".stockCell");
+                const lackCell = tr.querySelector(".lackCell");
+                const del = tr.querySelector(".btnDel");
+
+                // prefill chọn vật tư nếu có
+                if (v.vatTuId) sel.value = String(v.vatTuId);
+
+                const updateDvt = () => {
+                    const id = Number(sel.value);
+                    const vt = vatTuDm.find(x => x.id === id);
+                    dvtCell.textContent = vt ? (dvtMap[vt.donViTinhId] || "") : "";
+                };
+
+                const recalcRow = async () => {
+                    const plan = Number(document.getElementById("moQtyKH").value) || 0;
+                    const hs = Number(hsInp.value) || 0;
+                    const need = plan * hs;
+                    needCell.textContent = fmt(need);
+
+                    const vtId = Number(sel.value);
+                    let stock = 0;
+                    if (vtId) {
+                        try {
+                            const st = await api("getTonKhoBatch", { ids: [vtId] }, { silent: true });
+                            stock = st?.stocks?.[vtId] ?? 0;
+                        } catch { }
+                    }
+                    stockCell.textContent = fmt(stock);
+
+                    const lack = Math.max(0, need - stock);
+                    lackCell.textContent = fmt(lack);
+                    lackCell.classList.toggle("error", lack > 0);
+                };
+
+                sel.addEventListener("change", () => { updateDvt(); recalcRow(); });
+                hsInp.addEventListener("input", recalcRow);
+                document.getElementById("moQtyKH").addEventListener("input", recalcRow);
+
+                updateDvt();
+                recalcRow();
+                del.addEventListener("click", () => tr.remove());
+            }
+
+            // thêm dòng trống
+            on("#btnAddLine", () => addLine());
+
+            // nếu preset có sẵn định mức → add vào
+            if (Array.isArray(preset?.dinhMuc) && preset.dinhMuc.length) {
+                preset.dinhMuc.forEach(dm => addLine({ vatTuId: dm.vatTuId, heSo: dm.heSo, note: dm.ghiChu }));
+            }
+
+            // ====== Validate tồn kho (client) ======
+            async function validateOnClient() {
+                const plan = Number(document.getElementById("moQtyKH").value) || 0;
+                const rows = Array.from(document.querySelectorAll("#moLines tbody tr"))
+                    .filter(tr => !tr.classList.contains("hint"))
+                    .map(tr => {
+                        const vtId = Number(tr.querySelector(".vtSel").value);
+                        const hs = Number(tr.querySelector(".hsInp").value) || 0;
+                        return { tr, vtId, hs, need: plan * hs };
+                    })
+                    .filter(x => x.vtId && x.hs > 0);
+
+                if (rows.length === 0) {
+                    alert("Chưa chọn vật tư định mức."); return { ok: false };
+                }
+
+                const ids = [...new Set(rows.map(x => x.vtId))];
+                const st = await api("getTonKhoBatch", { ids }, { silent: true });
+                const stocks = st?.stocks || {};
+
+                let anyLack = false;
+                rows.forEach(x => {
+                    const stock = stocks[x.vtId] ?? 0;
+                    const lack = Math.max(0, x.need - stock);
+                    x.tr.querySelector(".stockCell").textContent = fmt(stock);
+                    x.tr.querySelector(".lackCell").textContent = fmt(lack);
+                    x.tr.querySelector(".lackCell").classList.toggle("error", lack > 0);
+                    if (lack > 0) anyLack = true;
+                });
+
+                if (anyLack) {
+                    alert("Thiếu nguyên liệu! Vui lòng bổ sung tồn hoặc giảm SL kế hoạch.");
+                    return { ok: false };
+                }
+                return { ok: true };
+            }
+
+            on("#btnCheckMat", validateOnClient);
+
+            // ====== Lưu MO ======
+            document.getElementById("btnSaveMo").addEventListener("click", async () => {
+                const chk = await validateOnClient();
+                if (!chk.ok) return;
+
+                const header = {
+                    // LẤY SoId từ preset đã lưu ở bước 1
+                    SoId: Number(window.__moPreset?.header?.soId || 0),
+
+                    NgayLenh: document.getElementById("moNgayLenh").value || null,
+                    NgayIn: document.getElementById("moNgayIn").value || null,
+                    SoLuongKeHoach: Number(document.getElementById("moQtyKH").value) || 0,
+
+                    TenKhachHang: (document.getElementById("moTenKH").value || "").trim(),
+                    TenBaiIn: (document.getElementById("moTenBaiIn").value || "").trim(),
+                    TenGiayIn: (document.getElementById("moTenGiayIn").value || "").trim(),
+                    KhoIn: (document.getElementById("moKhoIn").value || "").trim(),
+                    SoMauIn: Number(document.getElementById("moSoMauIn").value) || 0,
+                    HinhThucIn: (document.getElementById("moHinhThucIn").value || "").trim(),
+                    SoCon: Number(document.getElementById("moSoCon").value) || 0,
+                    MayIn: (document.getElementById("moMayIn").value || "").trim(),
+                    Note: (document.getElementById("moNote").value || "").trim()
+                };
+
+                const tpNew = {
+                    Ma: (document.getElementById("tpMa").value || "").trim() || null,
+                    Ten: (document.getElementById("tpTen").value || "").trim(),
+                    DvtId: Number(document.getElementById("tpDvt").value) || null
+                };
+
+                const dinhMuc = Array.from(document.querySelectorAll("#moLines tbody tr"))
+                    .filter(tr => !tr.classList.contains("hint"))
+                    .map(tr => ({
+                        VatTuId: Number(tr.querySelector(".vtSel").value) || 0,
+                        HeSo: Number(tr.querySelector(".hsInp").value) || 0,
+                        GhiChu: (tr.querySelector(".noteInp").value || "").trim()
+                    }))
+                    .filter(x => x.VatTuId && x.HeSo > 0);
+
+                if (!header.SoId) { alert("Thiếu SoId: hãy mở từ đơn bán bằng nút 'Tạo lệnh sản xuất'."); return; }
+                if (!tpNew.Ten || !tpNew.DvtId) { alert("Nhập Tên TP và chọn ĐVT."); return; }
+                if (header.SoLuongKeHoach <= 0) { alert("SL kế hoạch phải > 0"); return; }
+
+                const res = await api("saveMoFromSo", { header, tpNew, dinhMuc });
+                if (res?.ok) {
+                    alert("Đã lưu lệnh sản xuất.");
+                    renderMoList(); // và phía server nhớ chuyển trạng thái đơn bán -> in_production
+                } else {
+                    alert(res?.error || res?.message || "Lưu lệnh thất bại.");
+                }
+            });
+
+
+        }
+        // ========== XEM HÓA ĐƠN BÁN ==========
+        async function renderHdBanDetail(hdId) {
+            const idNum = Number(hdId);
+            if (!Number.isFinite(idNum) || idNum <= 0) { alert("ID hóa đơn không hợp lệ."); return; }
+
+            // TÊN LỆNH BACKEND: getHdBanDetail
+            const rs = await api("getHdBanDetail", { id: idNum });
+            if (!rs || rs.error) { alert(rs.error || "Không tải được chi tiết hóa đơn bán."); return; }
+
+            const fmtMoney = n => (n || 0).toLocaleString("vi-VN", { style: "currency", currency: "VND" });
+            const fmtDate = s => (s ? new Date(s).toLocaleDateString("vi-VN") : "");
+
+            const h = rs.header || {};
+            const lines = rs.lines || [];
+
+            const rows = lines.map((d, i) => `
+    <tr>
+      <td>${i + 1}</td>
+      <td>${d.tenHang || ""}</td>
+      <td>${d.quyCach || ""}</td>
+      <td>${d.donViTinh || ""}</td>
+      <td class="right">${(d.soLuong ?? 0).toLocaleString("vi-VN")}</td>
+      <td class="right">${fmtMoney(d.donGia || 0)}</td>
+      <td class="right">${fmtMoney(d.tienThue || 0)}</td>
+      <td class="right">${fmtMoney(d.thanhTien || (d.soLuong || 0) * (d.donGia || 0) + (d.tienThue || 0))}</td>
+    </tr>
+  `).join("");
+
             app.innerHTML = `
-                      <div class="page-header">
-                        <div>
-                          <h2>📦 Kho</h2>
-                          <p class="muted">Theo dõi Nhập – Xuất – Tồn, lệnh sản xuất, cảnh báo tồn thấp</p>
-                        </div>
-                        <div class="actions">
-                          <div class="btn-group">
-                            <button class="btn" data-doc="receipt">+ Phiếu nhập</button>
-                            <button class="btn" data-doc="issue">- Phiếu xuất</button>
-                            <button class="btn" data-doc="mo">⚙️ Lệnh sản xuất</button>
-                          </div>
-                        </div>
-                      </div>
+    <div class="page-header">
+      <div>
+        <h2>🧾 Hóa đơn bán: ${h.soHoaDon || ""}</h2>
+        <p class="muted">
+          Ngày HĐ: <b>${fmtDate(h.ngayHoaDon)}</b>
+          ${h.trangThai ? " • Trạng thái: <span class='badge'>" + h.trangThai + "</span>" : ""}
+        </p>
+      </div>
+      <div class="actions">
+        ${h.donBanId ? `<button class="btn" id="btnBackToSO">← Về đơn bán</button>` : `<button class="btn" id="btnBack">← Quay lại</button>`}
+      </div>
+    </div>
 
-                      <div class="toolbar">
-                        <input class="input" placeholder="Tìm theo mã chứng từ / mã hàng..." />
-                        <select class="input">
-                          <option>Tất cả kho</option>
-                          <option>Kho vật tư</option>
-                          <option>Kho thành phẩm</option>
-                        </select>
-                        <select class="input">
-                          <option>Tháng này</option>
-                          <option>Quý này</option>
-                          <option>Năm nay</option>
-                          <option>Tùy chọn…</option>
-                        </select>
-                        <div class="spacer"></div>
-                        <button class="btn">Xuất Excel</button>
-                        <button class="btn">In</button>
-                      </div>
+    <div class="card">
+      <header class="card-title">Dòng hàng</header>
+      <div class="table-wrap">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>#</th><th>Tên hàng</th><th>Quy cách</th><th>ĐVT</th>
+              <th class="right">SL</th><th class="right">Đơn giá</th>
+              <th class="right">Thuế</th><th class="right">Thành tiền</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rows || `<tr><td colspan="8" class="empty">Không có dòng.</td></tr>`}
+          </tbody>
+        </table>
+      </div>
 
-                      <div class="grid two-col">
-                        <div class="card">
-                          <header class="card-title">📥 Phiếu nhập gần đây</header>
-                          <div class="table-wrap">
-                            <table class="table">
-                              <thead><tr><th>Mã PN</th><th>Kho</th><th>Ngày</th><th>Giá trị</th><th></th></tr></thead>
-                              <tbody>
-                                <tr><td>PN-0005</td><td>Kho vật tư</td><td>12/10/2025</td><td>₫ 95,000,000</td><td><button class="btn link">Xem</button></td></tr>
-                                <tr><td>PN-0004</td><td>Kho thành phẩm</td><td>10/10/2025</td><td>₫ 18,200,000</td><td><button class="btn link">Xem</button></td></tr>
-                                <tr><td colspan="5" class="empty">…</td></tr>
-                              </tbody>
-                            </table>
-                          </div>
-                        </div>
+      <div class="grid form-grid totals" style="margin-top:12px">
+        <label class="field"><span>Tiền hàng</span><input class="input strong" value="${fmtMoney(h.tienHang || 0)}" disabled></label>
+        <label class="field"><span>Tiền thuế</span><input class="input strong" value="${fmtMoney(h.tienThue || 0)}" disabled></label>
+        <label class="field"><span>Tổng tiền</span><input class="input strong" value="${fmtMoney(h.tongTien || 0)}" disabled></label>
+      </div>
+    </div>
+  `;
 
-                        <div class="card">
-                          <header class="card-title">📤 Phiếu xuất gần đây</header>
-                          <div class="table-wrap">
-                            <table class="table">
-                              <thead><tr><th>Mã PX</th><th>Kho</th><th>Ngày</th><th>Giá trị</th><th></th></tr></thead>
-                              <tbody>
-                                <tr><td>PX-0102</td><td>Kho thành phẩm</td><td>13/10/2025</td><td>₫ 42,700,000</td><td><button class="btn link">Xem</button></td></tr>
-                                <tr><td>PX-0101</td><td>Kho vật tư</td><td>09/10/2025</td><td>₫ 12,300,000</td><td><button class="btn link">Xem</button></td></tr>
-                                <tr><td colspan="5" class="empty">…</td></tr>
-                              </tbody>
-                            </table>
-                          </div>
-                        </div>
-
-                        <div class="card">
-                          <header class="card-title">🔔 Tồn kho thấp</header>
-                          <div class="table-wrap">
-                            <table class="table">
-                              <thead><tr><th>Mã hàng</th><th>Tên hàng</th><th>Tồn</th><th>Ngưỡng</th></tr></thead>
-                              <tbody>
-                                <tr><td>VT-GD300</td><td>Giấy Duplex 300gsm</td><td>120</td><td>300</td></tr>
-                                <tr><td>INK-CMYK</td><td>Mực 4C</td><td>8</td><td>20</td></tr>
-                                <tr><td colspan="4" class="empty">…</td></tr>
-                              </tbody>
-                            </table>
-                          </div>
-                        </div>
-
-                        <div class="card">
-                          <header class="card-title">📊 Thẻ kho (mẫu)</header>
-                          <div class="table-wrap">
-                            <table class="table">
-                              <thead><tr><th>Ngày</th><th>Loại</th><th>Phiếu</th><th>Nhập</th><th>Xuất</th><th>Tồn</th></tr></thead>
-                              <tbody>
-                                <tr><td>10/10</td><td>PN</td><td>PN-0004</td><td>+2,000</td><td></td><td>5,500</td></tr>
-                                <tr><td>12/10</td><td>PX</td><td>PX-0102</td><td></td><td>-700</td><td>4,800</td></tr>
-                                <tr><td colspan="6" class="empty">…</td></tr>
-                              </tbody>
-                            </table>
-                          </div>
-                        </div>
-                      </div>
-                    `;
-
-            // nút tạo chứng từ
-            document.querySelectorAll(".btn-group .btn").forEach(b => {
-                b.addEventListener("click", () => renderInventoryDoc(b.dataset.doc));
+            const back = document.getElementById("btnBackToSO") || document.getElementById("btnBack");
+            if (back) back.addEventListener("click", () => {
+                if (h.donBanId) renderSalesDetail(h.donBanId);
+                else renderSalesList();
             });
         }
+
+        // ========== XEM PHIẾU XUẤT ==========
+        async function renderPxDetail(pxId) {
+            const idNum = Number(pxId);
+            if (!Number.isFinite(idNum) || idNum <= 0) { alert("ID phiếu xuất không hợp lệ."); return; }
+
+            // TÊN LỆNH BACKEND: getPxDetail
+            const rs = await api("getPxDetail", { id: idNum });
+            if (!rs || rs.error) { alert(rs.error || "Không tải được chi tiết phiếu xuất."); return; }
+
+            const fmtDate = s => (s ? new Date(s).toLocaleDateString("vi-VN") : "");
+            const fmtMoney = n => (n || 0).toLocaleString("vi-VN", { style: "currency", currency: "VND" });
+
+            const h = rs.header || {};
+            const lines = rs.lines || [];
+
+            const rows = lines.map((d, i) => `
+    <tr>
+      <td>${i + 1}</td>
+      <td>${d.vatTuMa || ""}</td>
+      <td>${d.vatTuTen || ""}</td>
+      <td>${d.dvtTen || ""}</td>
+      <td class="right">${(d.soLuong ?? 0).toLocaleString("vi-VN")}</td>
+      <td class="right">${fmtMoney(d.donGia || 0)}</td>
+      <td class="right">${fmtMoney(d.giaTri || (d.soLuong || 0) * (d.donGia || 0))}</td>
+    </tr>
+  `).join("");
+
+            app.innerHTML = `
+    <div class="page-header">
+      <div>
+        <h2>🚚 Phiếu xuất: ${h.soCt || ""}</h2>
+        <p class="muted">
+          Ngày PX: <b>${fmtDate(h.ngayXuat)}</b>
+          ${h.donBanSo ? " • Từ đơn bán: <b>" + h.donBanSo + "</b>" : ""}
+        </p>
+      </div>
+      <div class="actions">
+        ${h.donBanId ? `<button class="btn" id="btnBackToSO">← Về đơn bán</button>` : `<button class="btn" id="btnBack">← Quay lại</button>`}
+      </div>
+    </div>
+
+    <div class="card">
+      <header class="card-title">Dòng xuất kho</header>
+      <div class="table-wrap">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>#</th><th>Mã VT</th><th>Tên VT</th><th>ĐVT</th>
+              <th class="right">SL</th><th class="right">Đơn giá</th><th class="right">Giá trị</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rows || `<tr><td colspan="7" class="empty">Không có dòng.</td></tr>`}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  `;
+
+            const back = document.getElementById("btnBackToSO") || document.getElementById("btnBack");
+            if (back) back.addEventListener("click", () => {
+                if (h.donBanId) renderSalesDetail(h.donBanId);
+                else renderSalesList();
+            });
+        }
+
+
+
+
+
 
         /* ====== KHO: LẬP CHỨNG TỪ (PN/PX/MO) ====== */
         function renderInventoryDoc(type) {
@@ -809,6 +3567,7 @@
                 tbody.appendChild(tr);
             });
         }
+
 
         function renderDebtList() {
             app.innerHTML = `
@@ -1696,7 +4455,29 @@
                 alert("Không gửi được lệnh lên backend: " + err);
         }
       }
+        window._apiRaw = window.api;
 
+        // Ghi đè api: thêm opts.silent để không alert khi lỗi
+        window.api = async function (cmd, data = {}, opts = {}) {
+            const silent = !!opts.silent;
+            try {
+                const res = await window._apiRaw(cmd, data);
+                if (res && (res.error || res.status === "error")) {
+                    if (!silent) {
+                        const m = res.message || res.error || ("Lỗi khi gọi " + cmd);
+                        alert("Lỗi backend:\n" + m);
+                    }
+                    throw res;
+                }
+                return res;
+            } catch (err) {
+                if (!silent) {
+                    const m = (err && (err.message || err.error)) ? (err.message || err.error) : String(err);
+                    alert("Lỗi backend:\n" + m);
+                }
+                throw err;
+            }
+        };
     </script>
 
 </body>

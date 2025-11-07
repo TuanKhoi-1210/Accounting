@@ -2,7 +2,7 @@
 {
     public class Kho
     {
-        public int Id { get; set; }
+        public long Id { get; set; }
         public string Ma { get; set; } = null!;
         public string Ten { get; set; } = null!;
 

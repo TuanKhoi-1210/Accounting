@@ -482,3 +482,12 @@ html, body {
     --hover: #f3f4f6;
     --accent: #16a34a;
 }
+input[type=number]::-webkit-outer-spin-button,
+input[type=number]::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+/* Ẩn spinner cho Firefox */
+input[type=number] {
+    -moz-appearance: textfield;
+}

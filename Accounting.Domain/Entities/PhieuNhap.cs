@@ -2,11 +2,11 @@
 {
     public class PhieuNhap
     {
-        public int Id { get; set; }
+        public long Id { get; set; }
         public string SoCt { get; set; } = null!;
-        public int? NhaCungCapId { get; set; }
-        public int? KhoId { get; set; }
-        public int? DonMuaId { get; set; }
+        public long? NhaCungCapId { get; set; }
+        public long? KhoId { get; set; }
+        public long? DonMuaId { get; set; }
 
         public DateTime NgayNhap { get; set; }
         public string? GhiChu { get; set; }

@@ -4,6 +4,7 @@ using Accounting.Infrastructure;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace Accounting.Infrastructure.Migrations
 {
     [DbContext(typeof(AccountingDbContext))]
-    partial class AccountingDbContextModelSnapshot : ModelSnapshot
+    [Migration("20251028092726_SyncVatTuAfterManualDrop")]
+    partial class SyncVatTuAfterManualDrop
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -25,11 +28,11 @@ namespace Accounting.Infrastructure.Migrations
 
             modelBuilder.Entity("Accounting.Domain.Entities.DonMua", b =>
                 {
-                    b.Property<long>("Id")
+                    b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint");
+                        .HasColumnType("int");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
                     b.Property<bool>("CoHopDongLon")
                         .ValueGeneratedOnAdd()
@@ -41,12 +44,12 @@ namespace Accounting.Infrastructure.Migrations
                         .HasColumnType("nvarchar(max)")
                         .HasColumnName("ghi_chu");
 
-                    b.Property<DateTime?>("NgayDon")
+                    b.Property<DateTime>("NgayDon")
                         .HasColumnType("datetime2")
                         .HasColumnName("ngay_don");
 
-                    b.Property<long>("NhaCungCapId")
-                        .HasColumnType("bigint")
+                    b.Property<int?>("NhaCungCapId")
+                        .HasColumnType("int")
                         .HasColumnName("nha_cung_cap_id");
 
                     b.Property<string>("SoCt")
@@ -55,33 +58,26 @@ namespace Accounting.Infrastructure.Migrations
                         .HasColumnType("nvarchar(50)")
                         .HasColumnName("so_ct");
 
-                    b.Property<decimal>("TienHang")
-                        .ValueGeneratedOnAdd()
+                    b.Property<decimal?>("TienHang")
                         .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)")
-                        .HasDefaultValue(0m)
                         .HasColumnName("tien_hang");
 
                     b.Property<string>("TienTe")
                         .HasColumnType("nvarchar(max)")
                         .HasColumnName("tien_te");
 
-                    b.Property<decimal>("TienThue")
-                        .ValueGeneratedOnAdd()
+                    b.Property<decimal?>("TienThue")
                         .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)")
-                        .HasDefaultValue(0m)
                         .HasColumnName("tien_thue");
 
-                    b.Property<decimal>("TongTien")
-                        .ValueGeneratedOnAdd()
+                    b.Property<decimal?>("TongTien")
                         .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)")
-                        .HasDefaultValue(0m)
                         .HasColumnName("tong_tien");
 
                     b.Property<string>("TrangThai")
-                        .IsRequired()
                         .ValueGeneratedOnAdd()
                         .HasMaxLength(20)
                         .HasColumnType("nvarchar(20)")
@@ -107,11 +103,11 @@ namespace Accounting.Infrastructure.Migrations
 
             modelBuilder.Entity("Accounting.Domain.Entities.DonMuaDong", b =>
                 {
-                    b.Property<long>("Id")
+                    b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint");
+                        .HasColumnType("int");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
                     b.Property<string>("DinhLuongGsm")
                         .HasColumnType("nvarchar(max)")
@@ -122,8 +118,8 @@ namespace Accounting.Infrastructure.Migrations
                         .HasColumnType("decimal(18,2)")
                         .HasColumnName("don_gia");
 
-                    b.Property<long?>("DonMuaId")
-                        .HasColumnType("bigint")
+                    b.Property<int?>("DonMuaId")
+                        .HasColumnType("int")
                         .HasColumnName("don_mua_id");
 
                     b.Property<string>("GiaCong")
@@ -152,8 +148,8 @@ namespace Accounting.Infrastructure.Migrations
                         .HasColumnType("decimal(18,2)")
                         .HasColumnName("thanh_tien");
 
-                    b.Property<long?>("ThueSuatId")
-                        .HasColumnType("bigint")
+                    b.Property<int?>("ThueSuatId")
+                        .HasColumnType("int")
                         .HasColumnName("thue_suat_id");
 
                     b.Property<decimal?>("TienThue")
@@ -161,8 +157,8 @@ namespace Accounting.Infrastructure.Migrations
                         .HasColumnType("decimal(18,2)")
                         .HasColumnName("tien_thue");
 
-                    b.Property<long?>("VatTuId")
-                        .HasColumnType("bigint")
+                    b.Property<int?>("VatTuId")
+                        .HasColumnType("int")
                         .HasColumnName("vat_tu_id");
 
                     b.HasKey("Id");
@@ -178,11 +174,11 @@ namespace Accounting.Infrastructure.Migrations
 
             modelBuilder.Entity("Accounting.Domain.Entities.DonViTinh", b =>
                 {
-                    b.Property<long>("Id")
+                    b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint");
+                        .HasColumnType("int");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
                     b.Property<string>("Ma")
                         .IsRequired()
@@ -206,14 +202,14 @@ namespace Accounting.Infrastructure.Migrations
 
             modelBuilder.Entity("Accounting.Domain.Entities.HoaDonMua", b =>
                 {
-                    b.Property<long>("Id")
+                    b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint");
+                        .HasColumnType("int");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
-                    b.Property<long?>("DonMuaId")
-                        .HasColumnType("bigint")
+                    b.Property<int?>("DonMuaId")
+                        .HasColumnType("int")
                         .HasColumnName("don_mua_id");
 
                     b.Property<DateTime?>("HanThanhToan")
@@ -232,8 +228,8 @@ namespace Accounting.Infrastructure.Migrations
                         .HasColumnType("nvarchar(max)")
                         .HasColumnName("nguoi_tao");
 
-                    b.Property<long?>("NhaCungCapId")
-                        .HasColumnType("bigint")
+                    b.Property<int?>("NhaCungCapId")
+                        .HasColumnType("int")
                         .HasColumnName("nha_cung_cap_id");
 
                     b.Property<string>("SoCt")
@@ -278,19 +274,19 @@ namespace Accounting.Infrastructure.Migrations
 
             modelBuilder.Entity("Accounting.Domain.Entities.HoaDonMuaDong", b =>
                 {
-                    b.Property<long>("Id")
+                    b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint");
+                        .HasColumnType("int");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
                     b.Property<decimal>("DonGia")
                         .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)")
                         .HasColumnName("don_gia");
 
-                    b.Property<long?>("HoaDonMuaId")
-                        .HasColumnType("bigint")
+                    b.Property<int?>("HoaDonMuaId")
+                        .HasColumnType("int")
                         .HasColumnName("hoa_don_mua_id");
 
                     b.Property<decimal>("SoLuong")
@@ -303,8 +299,8 @@ namespace Accounting.Infrastructure.Migrations
                         .HasColumnType("decimal(18,2)")
                         .HasColumnName("thanh_tien");
 
-                    b.Property<long?>("ThueSuatId")
-                        .HasColumnType("bigint")
+                    b.Property<int?>("ThueSuatId")
+                        .HasColumnType("int")
                         .HasColumnName("thue_suat_id");
 
                     b.Property<decimal?>("TienThue")
@@ -312,8 +308,8 @@ namespace Accounting.Infrastructure.Migrations
                         .HasColumnType("decimal(18,2)")
                         .HasColumnName("tien_thue");
 
-                    b.Property<long?>("VatTuId")
-                        .HasColumnType("bigint")
+                    b.Property<int?>("VatTuId")
+                        .HasColumnType("int")
                         .HasColumnName("vat_tu_id");
 
                     b.HasKey("Id");
@@ -329,11 +325,11 @@ namespace Accounting.Infrastructure.Migrations
 
             modelBuilder.Entity("Accounting.Domain.Entities.KhachHang", b =>
                 {
-                    b.Property<long>("Id")
+                    b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint");
+                        .HasColumnType("int");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
                     b.Property<bool>("DaXoa")
                         .ValueGeneratedOnAdd()
@@ -395,11 +391,11 @@ namespace Accounting.Infrastructure.Migrations
 
             modelBuilder.Entity("Accounting.Domain.Entities.Kho", b =>
                 {
-                    b.Property<long>("Id")
+                    b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint");
+                        .HasColumnType("int");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
                     b.Property<bool>("DaXoa")
                         .ValueGeneratedOnAdd()
@@ -445,11 +441,11 @@ namespace Accounting.Infrastructure.Migrations
 
             modelBuilder.Entity("Accounting.Domain.Entities.NhaCungCap", b =>
                 {
-                    b.Property<long>("Id")
+                    b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint");
+                        .HasColumnType("int");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
                     b.Property<bool>("DaXoa")
                         .ValueGeneratedOnAdd()
@@ -511,22 +507,22 @@ namespace Accounting.Infrastructure.Migrations
 
             modelBuilder.Entity("Accounting.Domain.Entities.PhieuNhap", b =>
                 {
-                    b.Property<long>("Id")
+                    b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint");
+                        .HasColumnType("int");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
-                    b.Property<long?>("DonMuaId")
-                        .HasColumnType("bigint")
+                    b.Property<int?>("DonMuaId")
+                        .HasColumnType("int")
                         .HasColumnName("don_mua_id");
 
                     b.Property<string>("GhiChu")
                         .HasColumnType("nvarchar(max)")
                         .HasColumnName("ghi_chu");
 
-                    b.Property<long?>("KhoId")
-                        .HasColumnType("bigint")
+                    b.Property<int?>("KhoId")
+                        .HasColumnType("int")
                         .HasColumnName("kho_id");
 
                     b.Property<DateTime>("NgayNhap")
@@ -541,8 +537,8 @@ namespace Accounting.Infrastructure.Migrations
                         .HasColumnType("nvarchar(max)")
                         .HasColumnName("nguoi_tao");
 
-                    b.Property<long?>("NhaCungCapId")
-                        .HasColumnType("bigint")
+                    b.Property<int?>("NhaCungCapId")
+                        .HasColumnType("int")
                         .HasColumnName("nha_cung_cap_id");
 
                     b.Property<string>("SoCt")
@@ -567,11 +563,11 @@ namespace Accounting.Infrastructure.Migrations
 
             modelBuilder.Entity("Accounting.Domain.Entities.PhieuNhapDong", b =>
                 {
-                    b.Property<long>("Id")
+                    b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint");
+                        .HasColumnType("int");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
                     b.Property<decimal>("DonGia")
                         .HasPrecision(18, 2)
@@ -583,8 +579,8 @@ namespace Accounting.Infrastructure.Migrations
                         .HasColumnType("decimal(18,2)")
                         .HasColumnName("gia_tri");
 
-                    b.Property<long?>("PhieuNhapId")
-                        .HasColumnType("bigint")
+                    b.Property<int?>("PhieuNhapId")
+                        .HasColumnType("int")
                         .HasColumnName("phieu_nhap_id");
 
                     b.Property<string>("SoLo")
@@ -596,8 +592,8 @@ namespace Accounting.Infrastructure.Migrations
                         .HasColumnType("decimal(18,3)")
                         .HasColumnName("so_luong");
 
-                    b.Property<long?>("VatTuId")
-                        .HasColumnType("bigint")
+                    b.Property<int?>("VatTuId")
+                        .HasColumnType("int")
                         .HasColumnName("vat_tu_id");
 
                     b.HasKey("Id");
@@ -611,11 +607,11 @@ namespace Accounting.Infrastructure.Migrations
 
             modelBuilder.Entity("Accounting.Domain.Entities.TaiKhoanNganHang", b =>
                 {
-                    b.Property<long>("Id")
+                    b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint");
+                        .HasColumnType("int");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
                     b.Property<string>("Ma")
                         .IsRequired()
@@ -650,11 +646,11 @@ namespace Accounting.Infrastructure.Migrations
 
             modelBuilder.Entity("Accounting.Domain.Entities.ThueSuat", b =>
                 {
-                    b.Property<long>("Id")
+                    b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint");
+                        .HasColumnType("int");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
                     b.Property<bool>("DangHoatDong")
                         .ValueGeneratedOnAdd()
@@ -679,11 +675,11 @@ namespace Accounting.Infrastructure.Migrations
 
             modelBuilder.Entity("Accounting.Domain.Entities.VatTu", b =>
                 {
-                    b.Property<long>("Id")
+                    b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint");
+                        .HasColumnType("int");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
                     b.Property<bool>("DaXoa")
                         .ValueGeneratedOnAdd()
@@ -691,9 +687,25 @@ namespace Accounting.Infrastructure.Migrations
                         .HasDefaultValue(false)
                         .HasColumnName("da_xoa");
 
-                    b.Property<long?>("DonViTinhId")
-                        .HasColumnType("bigint")
+                    b.Property<string>("DinhLuongGsm")
+                        .HasColumnType("nvarchar(max)")
+                        .HasColumnName("dinh_luong_gsm");
+
+                    b.Property<int?>("DonViTinhId")
+                        .HasColumnType("int")
                         .HasColumnName("don_vi_tinh_id");
+
+                    b.Property<string>("GiaCong")
+                        .HasColumnType("nvarchar(max)")
+                        .HasColumnName("gia_cong");
+
+                    b.Property<string>("KichThuoc")
+                        .HasColumnType("nvarchar(max)")
+                        .HasColumnName("kich_thuoc");
+
+                    b.Property<string>("LoaiGiay")
+                        .HasColumnType("nvarchar(max)")
+                        .HasColumnName("loai_giay");
 
                     b.Property<string>("Ma")
                         .IsRequired()
@@ -701,8 +713,25 @@ namespace Accounting.Infrastructure.Migrations
                         .HasColumnType("nvarchar(50)")
                         .HasColumnName("ma");
 
-                    b.Property<decimal?>("NguongTon")
-                        .HasColumnType("decimal(18,2)");
+                    b.Property<string>("MauIn")
+                        .HasColumnType("nvarchar(max)")
+                        .HasColumnName("mau_in");
+
+                    b.Property<DateTime?>("NgayCapNhat")
+                        .HasColumnType("datetime2")
+                        .HasColumnName("ngay_cap_nhat");
+
+                    b.Property<DateTime?>("NgayTao")
+                        .HasColumnType("datetime2")
+                        .HasColumnName("ngay_tao");
+
+                    b.Property<string>("NguoiCapNhat")
+                        .HasColumnType("nvarchar(max)")
+                        .HasColumnName("nguoi_cap_nhat");
+
+                    b.Property<string>("NguoiTao")
+                        .HasColumnType("nvarchar(max)")
+                        .HasColumnName("nguoi_tao");
 
                     b.Property<string>("Ten")
                         .IsRequired()
@@ -724,9 +753,7 @@ namespace Accounting.Infrastructure.Migrations
                 {
                     b.HasOne("Accounting.Domain.Entities.NhaCungCap", null)
                         .WithMany()
-                        .HasForeignKey("NhaCungCapId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                        .HasForeignKey("NhaCungCapId");
                 });
 
             modelBuilder.Entity("Accounting.Domain.Entities.DonMuaDong", b =>

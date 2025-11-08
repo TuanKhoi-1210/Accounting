@@ -17,6 +17,7 @@ namespace Accounting.Infrastructure
         public AccountingDbContext() { }
 
         // ===== DbSet Danh mục =====
+        public DbSet<UserAccount> UserAccounts => Set<UserAccount>();
         public DbSet<KhachHang> KhachHang => Set<KhachHang>();
         public DbSet<NhaCungCap> NhaCungCap => Set<NhaCungCap>();
         public DbSet<DonViTinh> DonViTinh => Set<DonViTinh>();

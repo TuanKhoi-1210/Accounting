@@ -3742,6 +3742,7 @@
             }
         }
 
+
         function renderCash() {
             app.innerHTML = `
                           <div class="page-header">
@@ -3841,65 +3842,73 @@
         }
 
         /* ====== NGÂN HÀNG ====== */
- {
+        function renderBank() {
             app.innerHTML = `
-                          <div class="page-header">
-                            <div>
-                              <h2>🏦 Ngân hàng</h2>
-                              <p class="muted">Thu – chi qua NH, sổ phụ, đối chiếu</p>
-                            </div>
-                            <div class="actions">
-                              <div class="btn-group">
-                                <button class="btn" data-bank="receipt">+ UNC Thu</button>
-                                <button class="btn" data-bank="payment">- UNC Chi</button>
-                                <button class="btn" data-bank="reconcile">🔁 Đối chiếu sổ phụ</button>
-                              </div>
-                            </div>
-                          </div>
+    <div class="page-header">
+      <div>
+        <h2>🏦 Ngân hàng</h2>
+        <p class="muted">Thu – chi qua NH, sổ phụ, đối chiếu</p>
+      </div>
+      <div class="actions">
+        <div class="btn-group">
+          <button class="btn" data-bank="receipt">+ UNC Thu</button>
+          <button class="btn" data-bank="payment">- UNC Chi</button>
+          <button class="btn" data-bank="reconcile">🔁 Đối chiếu sổ phụ</button>
+        </div>
+      </div>
+    </div>
 
-                          <div class="toolbar">
-                            <input class="input" placeholder="Tìm theo số CT / tài khoản / diễn giải..." />
-                            <select class="input">
-                              <option>TK 1121 – VND</option><option>TK 1122 – USD</option>
-                            </select>
-                            <select class="input">
-                              <option>Tháng này</option><option>Quý này</option><option>Năm nay</option>
-                            </select>
-                            <div class="spacer"></div>
-                            <button class="btn">Xuất Excel</button>
-                          </div>
+    <div class="toolbar">
+      <input class="input" placeholder="Tìm theo số CT / tài khoản / diễn giải..." />
+      <select class="input">
+        <option>TK 1121 – VND</option>
+        <option>TK 1122 – USD</option>
+      </select>
+      <select class="input">
+        <option>Tháng này</option>
+        <option>Quý này</option>
+        <option>Năm nay</option>
+      </select>
+      <div class="spacer"></div>
+      <button class="btn">Xuất Excel</button>
+    </div>
 
-                          <div class="grid two-col">
-                            <div class="card">
-                              <header class="card-title">🧾 Chứng từ ngân hàng</header>
-                              <div class="table-wrap">
-                                <table class="table">
-                                  <thead><tr><th>Loại</th><th>Số CT</th><th>Ngày</th><th>Số tiền</th><th>Tài khoản</th><th>Đối tượng</th><th></th></tr></thead>
-                                  <tbody>
-                                    <tr><td>Thu</td><td>UNC-THU-009</td><td>12/10/2025</td><td>₫ 210,000,000</td><td>1121</td><td>Minh Quân</td><td><button class="btn link">Xem</button></td></tr>
-                                    <tr><td>Chi</td><td>UNC-CHI-077</td><td>11/10/2025</td><td>₫ 95,000,000</td><td>1121</td><td>Giấy Hòa Việt</td><td><button class="btn link">Xem</button></td></tr>
-                                    <tr><td colspan="7" class="empty">…</td></tr>
-                                  </tbody>
-                                </table>
-                              </div>
-                            </div>
+    <div class="grid two-col">
+      <div class="card">
+        <header class="card-title">🧾 Chứng từ ngân hàng</header>
+        <div class="table-wrap">
+          <table class="table">
+            <thead>
+              <tr><th>Loại</th><th>Số CT</th><th>Ngày</th><th>Số tiền</th><th>Tài khoản</th><th>Đối tượng</th><th></th></tr>
+            </thead>
+            <tbody>
+              <tr><td>Thu</td><td>UNC-THU-009</td><td>12/10/2025</td><td>₫ 210,000,000</td><td>1121</td><td>Minh Quân</td><td><button class="btn link">Xem</button></td></tr>
+              <tr><td>Chi</td><td>UNC-CHI-077</td><td>11/10/2025</td><td>₫ 95,000,000</td><td>1121</td><td>Giấy Hòa Việt</td><td><button class="btn link">Xem</button></td></tr>
+              <tr><td colspan="7" class="empty">…</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
 
-                            <div class="card">
-                              <header class="card-title">📑 Đối chiếu sổ phụ</header>
-                              <div class="table-wrap">
-                                <table class="table">
-                                  <thead><tr><th>Ngày</th><th>Mô tả</th><th>Số tiền (NH)</th><th>Đã hạch toán</th><th>Chênh lệch</th></tr></thead>
-                                  <tbody>
-                                    <tr><td>12/10</td><td>Tiền về bán hàng SO-1002</td><td>₫ 210,000,000</td><td>₫ 210,000,000</td><td>₫ 0</td></tr>
-                                    <tr><td>11/10</td><td>Thanh toán NCC Hòa Việt</td><td>₫ 95,000,000</td><td>₫ 80,000,000</td><td>₫ 15,000,000</td></tr>
-                                    <tr><td colspan="5" class="empty">…</td></tr>
-                                  </tbody>
-                                </table>
-                              </div>
-                            </div>
-                          </div>
-                        `;
+      <div class="card">
+        <header class="card-title">📑 Đối chiếu sổ phụ</header>
+        <div class="table-wrap">
+          <table class="table">
+            <thead>
+              <tr><th>Ngày</th><th>Mô tả</th><th>Số tiền (NH)</th><th>Đã hạch toán</th><th>Chênh lệch</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>12/10</td><td>Tiền về bán hàng SO-1002</td><td>₫ 210,000,000</td><td>₫ 210,000,000</td><td>₫ 0</td></tr>
+              <tr><td>11/10</td><td>Thanh toán NCC Hòa Việt</td><td>₫ 95,000,000</td><td>₫ 80,000,000</td><td>₫ 15,000,000</td></tr>
+              <tr><td colspan="5" class="empty">…</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  `;
 
+            // Gán sự kiện sau khi innerHTML xong
             document.querySelectorAll('[data-bank]').forEach(b => {
                 b.addEventListener('click', () => renderBankDoc(b.dataset.bank));
             });
@@ -4414,15 +4423,24 @@
             });
         }
 
-        /* =============== ROUTER (gọi từ sidebar) =============== */
         function navigate(view, label) {
-            document.querySelectorAll(".sidebar button").forEach(b => b.classList.remove("active"));
-            const btn = document.querySelector(`.sidebar button[data-view="${view}"]`);
-            if (btn) btn.classList.add("active");
-            if (view === "settings") renderSettings(); else app.innerHTML = `<h2>${label}</h2>`;
+            // toggle active
+            document.querySelectorAll(".sidebar button[data-view]").forEach(b => b.classList.remove("active"));
+            document.querySelector(`.sidebar button[data-view="${view}"]`)?.classList.add("active");
+
+            // điều hướng an toàn
+            if (view === "dashboard") { renderDashboard?.(); }
+            else if (view === "purchase") { renderPurchaseList?.(); }
+            else if (view === "sales") { renderSalesList?.(); }
+            else if (view === "inventory") { renderInventoryList?.(); }  // <- phải tồn tại
+            else if (view === "debt") { renderDebtList?.(); }
+            else if (view === "cash") { renderCash?.(); }
+            else if (view === "bank") { renderBank?.(); }
+            else if (view === "report") { renderReport?.(); }
+            else if (view === "tax") { renderTax?.(); }
+            else if (view === "settings") { renderSettings?.(); }
+            else { app.innerHTML = `<h2>${label || ""}</h2>`; }
         }
-
-
 /* ================= TOPBAR (user + logout) ================= */
 document.addEventListener("DOMContentLoaded", ()=>{
       const user = JSON.parse(localStorage.getItem("userInfo") || "{ }");

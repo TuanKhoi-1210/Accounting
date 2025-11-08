@@ -232,24 +232,35 @@ namespace Accounting.App
                 switch (cmd)
                 {
                     case "user_list":
-                        var items = await db.UserAccounts
-                            .OrderBy(u => u.Username)
-                            .Select(u => new {
-                                id = u.Id,
-                                username = u.Username,
-                                fullName = u.FullName,
-                                role = u.Role,           // string: "Admin" / "Mua bán hàng" / "Kho" / "Kế toán"
-                                isActive = u.IsActive,
-                                createdAt = u.CreatedAt
-                            }).ToListAsync();
-                        Post(new { type = "user_list", items });
-                        break;
+                        {
+                            var items = await _db.UserAccounts          // <-- db -> _db
+                                .OrderBy(u => u.Username)
+                                .Select(u => new {
+                                    id = u.Id,
+                                    username = u.Username,
+                                    fullName = u.FullName,
+                                    role = u.Role,                      // "Admin" / "Mua bán hàng" / "Kho" / "Kế toán"
+                                    isActive = u.IsActive,
+                                    createdAt = u.CreatedAt
+                                })
+                                .ToListAsync();
+
+                            Post(new { type = "user_list", items });
+                            break;
+                        }
 
                     case "user_get":
                         {
-                            long id = req.id;
-                            var u = await db.UserAccounts.FindAsync(id);
+                            if (!msg.TryGetProperty("id", out var idEl))
+                            {
+                                Post(new { error = "missing_id" });
+                                break;
+                            }
+                            long id = idEl.GetInt64();
+
+                            var u = await _db.UserAccounts.FindAsync(id);   // <-- db -> _db
                             if (u == null) { Post(new { error = "not_found" }); break; }
+
                             Post(new
                             {
                                 type = "user_get",
@@ -268,63 +279,72 @@ namespace Accounting.App
 
                     case "user_create_basic":
                         {
-                            var dto = req.user;
-                            var (salt, hash) = Hash(dto.password ?? "");
+                            if (!msg.TryGetProperty("user", out var uEl) || uEl.ValueKind != JsonValueKind.Object)
+                            {
+                                Post(new { error = "missing_user" });
+                                break;
+                            }
+
+                            string username = uEl.TryGetProperty("username", out var x1) ? x1.GetString() ?? "" : "";
+                            string? fullName = uEl.TryGetProperty("fullName", out var x2) ? x2.GetString() : null;
+                            string role = uEl.TryGetProperty("role", out var x3) ? (x3.GetString() ?? "Kế toán") : "Kế toán";
+                            bool isActive = uEl.TryGetProperty("isActive", out var x4) && x4.GetBoolean();
+                            string password = uEl.TryGetProperty("password", out var x5) ? (x5.GetString() ?? "") : "";
+
+                            // dùng SimplePwd.Hash bạn đã khai báo ở trên
+                            var (hash, salt) = SimplePwd.Hash(password);
+
                             var u = new UserAccount
                             {
-                                Username = dto.username,
-                                FullName = dto.fullName,
-                                Role = dto.role,       // phải thuộc FIXED_ROLES
-                                IsActive = dto.isActive == true,
-                                PasswordSalt = salt,
+                                Username = username,
+                                FullName = fullName,
+                                Role = role,
+                                IsActive = isActive,
                                 PasswordHash = hash,
+                                PasswordSalt = salt,
                                 CreatedAt = DateTime.UtcNow
                             };
-                            db.Add(u); await db.SaveChangesAsync();
+
+                            _db.Add(u);                                     // <-- db -> _db
+                            await _db.SaveChangesAsync();
                             Post(new { type = "user_saved" });
                             break;
                         }
 
                     case "user_update_basic":
                         {
-                            var dto = req.user;
-                            var u = await db.UserAccounts.FindAsync((long)dto.id);
-                            if (u == null) { Post(new { error = "not_found" }); break; }
-                            u.FullName = dto.fullName;
-                            u.Role = dto.role;
-                            u.IsActive = dto.isActive == true;
-                            var pw = (string?)dto.newPassword;
-                            if (!string.IsNullOrWhiteSpace(pw))
+                            if (!msg.TryGetProperty("user", out var uEl) || uEl.ValueKind != JsonValueKind.Object)
                             {
-                                var (salt, hash) = Hash(pw);
-                                u.PasswordSalt = salt; u.PasswordHash = hash;
+                                Post(new { error = "missing_user" }); break;
                             }
-                            await db.SaveChangesAsync();
+
+                            if (!uEl.TryGetProperty("id", out var idEl)) { Post(new { error = "missing_id" }); break; }
+                            var id = idEl.GetInt64();
+
+                            var u = await _db.UserAccounts.FindAsync(id);
+                            if (u == null) { Post(new { error = "not_found" }); break; }
+
+                            // fields (có thì cập nhật)
+                            if (uEl.TryGetProperty("fullName", out var fnEl)) u.FullName = fnEl.GetString();
+                            if (uEl.TryGetProperty("role", out var roleEl)) u.Role = roleEl.GetString() ?? u.Role;
+                            if (uEl.TryGetProperty("isActive", out var actEl)) u.IsActive = actEl.GetBoolean();
+
+                            // mật khẩu mới có thể nằm ở user.password hoặc msg.newPassword
+                            string newPw =
+                                (uEl.TryGetProperty("password", out var pwEl) ? (pwEl.GetString() ?? "") : "")
+                                ?? "";
+                            if (string.IsNullOrWhiteSpace(newPw) && msg.TryGetProperty("newPassword", out var npEl))
+                                newPw = npEl.GetString() ?? "";
+
+                            if (!string.IsNullOrWhiteSpace(newPw))
+                            {
+                                var (hash, salt) = SimplePwd.Hash(newPw);
+                                u.PasswordHash = hash; u.PasswordSalt = salt;
+                            }
+
+                            u.UpdatedAt = DateTime.UtcNow;
+                            await _db.SaveChangesAsync();
                             Post(new { type = "user_updated" });
-                            break;
-                        }
-
-                    case "user_toggle_active":
-                        {
-                            long id = req.id;
-                            var u = await db.UserAccounts.FindAsync(id);
-                            if (u == null) { Post(new { error = "not_found" }); break; }
-                            u.IsActive = !u.IsActive;
-                            await db.SaveChangesAsync();
-                            Post(new { type = "user_toggled" });
-                            break;
-                        }
-
-                    case "user_reset_password":
-                        {
-                            long id = req.id;
-                            var newPw = (string)req.newPassword;
-                            var u = await db.UserAccounts.FindAsync(id);
-                            if (u == null) { Post(new { error = "not_found" }); break; }
-                            var (salt, hash) = Hash(newPw);
-                            u.PasswordSalt = salt; u.PasswordHash = hash;
-                            await db.SaveChangesAsync();
-                            Post(new { type = "user_reset" });
                             break;
                         }
 
@@ -338,10 +358,21 @@ namespace Accounting.App
 
                     case "config_set":
                         {
-                            // lưu cfg.lang / cfg.theme
-                            Post(new { type = "config_saved", cfg = req.cfg });
+                            // lấy object cfg từ message
+                            if (!msg.TryGetProperty("cfg", out var cfgEl) || cfgEl.ValueKind != JsonValueKind.Object)
+                            {
+                                Post(new { error = "missing_cfg" });
+                                break;
+                            }
+
+                            var lang = cfgEl.TryGetProperty("lang", out var l) ? (l.GetString() ?? "vi") : "vi";
+                            var theme = cfgEl.TryGetProperty("theme", out var t) ? (t.GetString() ?? "dark") : "dark";
+
+                            // TODO: lưu vào DB nếu bạn muốn
+                            Post(new { type = "config_saved", cfg = new { lang, theme } });
                             break;
                         }
+
 
                     // ===== Danh sách đơn mua =====
                     case "list":

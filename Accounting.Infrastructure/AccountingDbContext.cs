@@ -252,24 +252,48 @@ namespace Accounting.Infrastructure
             // =========================
             // ĐƠN BÁN (job in ấn)
             // =========================
+            // ===== USERS / ROLES (chuẩn snake_case + kiểu varbinary) =====
+            b.Entity<UserAccount>(e =>
+            {
+                e.ToTable("user_account", "acc");
+                e.HasKey(x => x.Id);
+                e.Property(x => x.Id).HasColumnName("id");
+                e.Property(x => x.Username).HasColumnName("username").HasMaxLength(100);
+                e.Property(x => x.FullName).HasColumnName("full_name").HasMaxLength(200);
+                e.Property(x => x.Role).HasColumnName("role").HasMaxLength(50);   // <- cột mới
+                e.Property(x => x.PasswordHash).HasColumnName("password_hash");
+                e.Property(x => x.PasswordSalt).HasColumnName("password_salt");
+                e.Property(x => x.IsActive).HasColumnName("is_active");
+                e.Property(x => x.CreatedAt).HasColumnName("created_at");
+                e.Property(x => x.UpdatedAt).HasColumnName("updated_at");
+            });
+
+
+
+
+
+            // ===== ĐƠN BÁN =====
             b.Entity<DonBan>(e =>
             {
-                e.ToTable("don_ban");
+                e.ToTable("don_ban", "acc");
                 e.HasKey(x => x.Id);
 
+                e.Property(x => x.Id).HasColumnName("id");
                 e.Property(x => x.SoCt).HasColumnName("so_ct").HasMaxLength(50).IsRequired();
                 e.HasIndex(x => x.SoCt).IsUnique();
 
                 e.Property(x => x.NgayDon).HasColumnName("ngay_don");
                 e.Property(x => x.KhachHangId).HasColumnName("khach_hang_id");
                 e.Property(x => x.KhoId).HasColumnName("kho_id");
-                e.Property(x => x.TrangThai).HasColumnName("trang_thai").HasMaxLength(30).HasDefaultValue("draft");
+                e.Property(x => x.TrangThai).HasColumnName("trang_thai")
+                    .HasMaxLength(30).HasDefaultValue("draft");
+
+                e.Property(x => x.GhiChu).HasColumnName("ghi_chu").HasMaxLength(500);
 
                 e.Property(x => x.TienHang).HasColumnName("tien_hang").HasColumnType("decimal(18,2)");
                 e.Property(x => x.TienChietKhau).HasColumnName("tien_ck").HasColumnType("decimal(18,2)");
                 e.Property(x => x.TienThue).HasColumnName("tien_thue").HasColumnType("decimal(18,2)");
                 e.Property(x => x.TongTien).HasColumnName("tong_tien").HasColumnType("decimal(18,2)");
-                e.Property(x => x.GhiChu).HasColumnName("ghi_chu").HasMaxLength(500);
 
                 e.Property(x => x.NgayTao).HasColumnName("ngay_tao");
                 e.Property(x => x.NguoiTao).HasColumnName("nguoi_tao");
@@ -280,31 +304,33 @@ namespace Accounting.Infrastructure
                 e.HasMany(x => x.Dongs).WithOne().HasForeignKey(d => d.DonBanId);
             });
 
+            // ===== DÒNG ĐƠN BÁN =====
             b.Entity<DonBanDong>(e =>
             {
-                e.ToTable("don_ban_dong");
+                e.ToTable("don_ban_dong", "acc");
                 e.HasKey(x => x.Id);
 
+                e.Property(x => x.Id).HasColumnName("id");
                 e.Property(x => x.DonBanId).HasColumnName("don_ban_id");
+
                 e.Property(x => x.SanPhamId).HasColumnName("san_pham_id");
-                e.Property(x => x.TenHang).HasColumnName("ten_hang").HasMaxLength(200).IsRequired();
+                e.Property(x => x.TenHang).HasColumnName("ten_hang").HasMaxLength(300);
                 e.Property(x => x.QuyCach).HasColumnName("quy_cach").HasMaxLength(500);
-                e.Property(x => x.SpecJson).HasColumnName("spec_json"); // nvarchar(max)
+                e.Property(x => x.SpecJson).HasColumnName("spec_json");
 
                 e.Property(x => x.SoLuong).HasColumnName("so_luong").HasColumnType("decimal(18,3)");
-                e.Property(x => x.DonViTinh).HasColumnName("dvt").HasMaxLength(50);
+                e.Property(x => x.DonViTinh).HasColumnName("don_vi_tinh").HasMaxLength(30);
                 e.Property(x => x.DonGia).HasColumnName("don_gia").HasColumnType("decimal(18,2)");
 
                 e.Property(x => x.TienHang).HasColumnName("tien_hang").HasColumnType("decimal(18,2)");
                 e.Property(x => x.TienChietKhau).HasColumnName("tien_ck").HasColumnType("decimal(18,2)");
-                e.Property(x => x.ThueSuat).HasColumnName("thue_suat").HasColumnType("decimal(9,4)");
+                e.Property(x => x.ThueSuat).HasColumnName("thue_suat").HasColumnType("decimal(5,2)");
                 e.Property(x => x.TienThue).HasColumnName("tien_thue").HasColumnType("decimal(18,2)");
                 e.Property(x => x.ThanhTien).HasColumnName("thanh_tien").HasColumnType("decimal(18,2)");
 
                 e.Property(x => x.DaXoa).HasColumnName("da_xoa").HasDefaultValue(false);
-
-                e.HasIndex(x => new { x.DonBanId, x.TenHang });
             });
+
             b.Entity<HoaDonBan>(e =>
             {
                 e.ToTable("hoa_don_ban");

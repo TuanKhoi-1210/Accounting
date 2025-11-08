@@ -3,24 +3,27 @@ using Accounting.Application.Services;
 using Accounting.Domain.Entities;
 using Accounting.Infrastructure;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.Web.WebView2.Core;
 using Microsoft.Web.WebView2.WinForms;
+using QuestPDF.Fluent;
+using QuestPDF.Helpers;
+using QuestPDF.Infrastructure;
 using System;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Security.Cryptography;
 using System.Text;
+using System.Text;
+using System.Text.Json;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using System.Windows.Forms;
-using QuestPDF.Fluent;
-using QuestPDF.Infrastructure;
-using QuestPDF.Helpers;
-using System.Text;
-using Microsoft.EntityFrameworkCore;
-using System.Text.Json;
+using WinFormsApp = System.Windows.Forms.Application;
+
 namespace Accounting.App
 {
     public partial class Form1 : Form
@@ -33,7 +36,34 @@ namespace Accounting.App
         private AccountingDbContext _db = default!;
         private PurchaseService _service = default!;
         private CatalogService _catalog = default!;
+        class WebMsg
+        {
+            public string? cmd { get; set; }
+            public long? id { get; set; }
+            public UserPayload? user { get; set; }
+            public string? newPassword { get; set; }
+            public ConfigPayload? cfg { get; set; }
+        }
+
+        class UserPayload
+        {
+            public long? id { get; set; }
+            public string? username { get; set; }
+            public string? fullName { get; set; }
+            public string? role { get; set; }
+            public bool? isActive { get; set; }
+            public string? password { get; set; }     // khi tạo mới
+        }
+
+        class ConfigPayload
+        {
+            public string? lang { get; set; }
+            public string? theme { get; set; }
+        }
         private DbContextOptions<AccountingDbContext> _dbOptions = default!;
+        public record UserCreateDto(string Username, string? FullName, string Password, bool IsActive, long[] RoleIds);
+        public record UserUpdateDto(long Id, string? FullName, bool IsActive, long[] RoleIds, string? NewPassword);
+
         public Form1()
         {
             InitializeComponent();
@@ -95,6 +125,23 @@ namespace Accounting.App
             catch (Exception ex)
             {
                 MessageBox.Show("Lỗi khởi tạo: " + ex.Message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+        static class SimplePwd
+        {
+            public static (byte[] hash, byte[] salt) Hash(string password)
+            {
+                using var rng = System.Security.Cryptography.RandomNumberGenerator.Create();
+                var salt = new byte[16]; rng.GetBytes(salt);
+                using var hmac = new System.Security.Cryptography.HMACSHA256(salt);
+                var hash = hmac.ComputeHash(Encoding.UTF8.GetBytes(password ?? ""));
+                return (hash, salt);
+            }
+            public static bool Verify(string password, byte[] hash, byte[] salt)
+            {
+                using var hmac = new System.Security.Cryptography.HMACSHA256(salt);
+                var test = hmac.ComputeHash(Encoding.UTF8.GetBytes(password ?? ""));
+                return System.Linq.Enumerable.SequenceEqual(test, hash);
             }
         }
 
@@ -184,6 +231,118 @@ namespace Accounting.App
 
                 switch (cmd)
                 {
+                    case "user_list":
+                        var items = await db.UserAccounts
+                            .OrderBy(u => u.Username)
+                            .Select(u => new {
+                                id = u.Id,
+                                username = u.Username,
+                                fullName = u.FullName,
+                                role = u.Role,           // string: "Admin" / "Mua bán hàng" / "Kho" / "Kế toán"
+                                isActive = u.IsActive,
+                                createdAt = u.CreatedAt
+                            }).ToListAsync();
+                        Post(new { type = "user_list", items });
+                        break;
+
+                    case "user_get":
+                        {
+                            long id = req.id;
+                            var u = await db.UserAccounts.FindAsync(id);
+                            if (u == null) { Post(new { error = "not_found" }); break; }
+                            Post(new
+                            {
+                                type = "user_get",
+                                user = new
+                                {
+                                    id = u.Id,
+                                    username = u.Username,
+                                    fullName = u.FullName,
+                                    role = u.Role,
+                                    isActive = u.IsActive,
+                                    createdAt = u.CreatedAt
+                                }
+                            });
+                            break;
+                        }
+
+                    case "user_create_basic":
+                        {
+                            var dto = req.user;
+                            var (salt, hash) = Hash(dto.password ?? "");
+                            var u = new UserAccount
+                            {
+                                Username = dto.username,
+                                FullName = dto.fullName,
+                                Role = dto.role,       // phải thuộc FIXED_ROLES
+                                IsActive = dto.isActive == true,
+                                PasswordSalt = salt,
+                                PasswordHash = hash,
+                                CreatedAt = DateTime.UtcNow
+                            };
+                            db.Add(u); await db.SaveChangesAsync();
+                            Post(new { type = "user_saved" });
+                            break;
+                        }
+
+                    case "user_update_basic":
+                        {
+                            var dto = req.user;
+                            var u = await db.UserAccounts.FindAsync((long)dto.id);
+                            if (u == null) { Post(new { error = "not_found" }); break; }
+                            u.FullName = dto.fullName;
+                            u.Role = dto.role;
+                            u.IsActive = dto.isActive == true;
+                            var pw = (string?)dto.newPassword;
+                            if (!string.IsNullOrWhiteSpace(pw))
+                            {
+                                var (salt, hash) = Hash(pw);
+                                u.PasswordSalt = salt; u.PasswordHash = hash;
+                            }
+                            await db.SaveChangesAsync();
+                            Post(new { type = "user_updated" });
+                            break;
+                        }
+
+                    case "user_toggle_active":
+                        {
+                            long id = req.id;
+                            var u = await db.UserAccounts.FindAsync(id);
+                            if (u == null) { Post(new { error = "not_found" }); break; }
+                            u.IsActive = !u.IsActive;
+                            await db.SaveChangesAsync();
+                            Post(new { type = "user_toggled" });
+                            break;
+                        }
+
+                    case "user_reset_password":
+                        {
+                            long id = req.id;
+                            var newPw = (string)req.newPassword;
+                            var u = await db.UserAccounts.FindAsync(id);
+                            if (u == null) { Post(new { error = "not_found" }); break; }
+                            var (salt, hash) = Hash(newPw);
+                            u.PasswordSalt = salt; u.PasswordHash = hash;
+                            await db.SaveChangesAsync();
+                            Post(new { type = "user_reset" });
+                            break;
+                        }
+
+                    case "config_get":
+                        {
+                            // đọc từ bảng config hoặc appsettings
+                            var cfg = new { lang = "vi", theme = "dark" };
+                            Post(new { type = "config_get", cfg });
+                            break;
+                        }
+
+                    case "config_set":
+                        {
+                            // lưu cfg.lang / cfg.theme
+                            Post(new { type = "config_saved", cfg = req.cfg });
+                            break;
+                        }
+
                     // ===== Danh sách đơn mua =====
                     case "list":
                     case "listDonMua":
@@ -254,6 +413,37 @@ namespace Accounting.App
                             break;
                         }
 
+                    case "logout":
+                        {
+                            // (tuỳ chọn) dọn session phía C# nếu bạn có lưu
+                            try
+                            {
+                                // Xoá storage WebView nếu muốn "sạch" hẳn
+                                await webView.CoreWebView2.Profile.ClearBrowsingDataAsync(
+                                    CoreWebView2BrowsingDataKinds.AllProfile);
+                            }
+                            catch { /* ignore */ }
+
+                            // Mở lại LoginForm (có handler 'login')
+                            this.BeginInvoke(new Action(() =>
+                            {
+                                var login = new LoginForm(_dbOptions);
+                                login.Show();
+
+                                // Đóng Form1 — app vẫn tiếp tục vì LoginForm là form còn sống
+                                this.Close();
+                            }));
+                            break;
+                        }
+                    case "nav_users":
+                        {
+                            // (tuỳ chọn) kiểm tra quyền ở backend nếu bạn có lưu currentUser
+                            // Ở bản WinForms demo, ta điều hướng sang trang users.html
+                            var wwwroot = Path.Combine(System.Windows.Forms.Application.StartupPath, "wwwroot");
+                            // đảm bảo đã map host ảo "app" → wwwroot (bạn đang có rồi)
+                            webView.CoreWebView2.Navigate("https://app/users.html");
+                            break;
+                        }
                     case "createVatTu":
                         {
                             var ma = msg.GetProperty("ma").GetString();
@@ -2758,6 +2948,15 @@ VALUES (@pn, @vt, @sl, @dg, @gt);";
                 Reply(new { error = ex.ToString() });
             }
 
+        }
+        void Post(object obj) =>
+    webView.CoreWebView2.PostWebMessageAsJson(JsonSerializer.Serialize(obj));
+
+        (byte[] salt, byte[] hash) Hash(string pw)
+        {
+            var salt = RandomNumberGenerator.GetBytes(16);
+            var hash = Rfc2898DeriveBytes.Pbkdf2(Encoding.UTF8.GetBytes(pw ?? ""), salt, 100_000, HashAlgorithmName.SHA256, 32);
+            return (salt, hash);
         }
         // using Microsoft.EntityFrameworkCore;  // nhớ có using này ở đầu file
         private static async Task<string> GenerateNextPxCodeAsync(AccountingDbContext db, DateTime? when = null)

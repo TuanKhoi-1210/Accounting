@@ -1,0 +1,308 @@
+﻿<!doctype html>
+<html lang="vi" data-theme="dark">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Đăng nhập hệ thống</title>
+
+    <!-- CSS chung của app -->
+    <link rel="stylesheet" href="css/style.css" />
+
+    <style>
+        /* layout nền cho trang login */
+        body.login-wrap {
+            min-height: 100vh;
+            display: grid;
+            place-items: center;
+            background: radial-gradient(70rem 70rem at 0% 0%, #1f293722 40%, transparent 60%), var(--bg);
+        }
+        /* thẻ card đăng nhập */
+        .login-card {
+            width: min(720px, 92vw); /* chỉnh rộng hơn cho đẹp */
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 28px 26px;
+            box-shadow: 0 18px 50px rgba(0,0,0,.45);
+        }
+
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 6px;
+        }
+
+            .brand .logo-dot {
+                width: 32px;
+                height: 32px;
+                border-radius: 10px;
+                background: conic-gradient(from 210deg, var(--accent), #34d399, #16a34a);
+                box-shadow: 0 0 0 6px #22c55e22, 0 10px 18px #22c55e33;
+            }
+
+            .brand h1 {
+                margin: 0;
+                font-size: 22px;
+                letter-spacing: .2px;
+                color: var(--accent);
+            }
+
+            .brand .ver {
+                margin-left: auto;
+                opacity: .6;
+                font-size: 12px;
+            }
+
+        .login-form {
+            margin-top: 16px;
+            display: grid;
+            gap: 14px;
+        }
+
+        .label {
+            font-size: 13px;
+            opacity: .8;
+        }
+
+        .input-wrap {
+            display: flex;
+            align-items: center;
+            background: #0b1220;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 0 12px;
+            height: 44px;
+        }
+
+            .input-wrap:focus-within {
+                border-color: var(--accent);
+                box-shadow: 0 0 0 3px #22c55e33;
+            }
+
+            .input-wrap input {
+                flex: 1;
+                background: transparent;
+                border: 0;
+                outline: none;
+                color: var(--text);
+                height: 100%;
+            }
+
+        .icon {
+            opacity: .8;
+            margin-right: 8px;
+        }
+
+        .toggle {
+            opacity: .85;
+            cursor: pointer;
+            user-select: none;
+            font-size: 12px;
+            padding-left: 8px;
+        }
+
+        .row-inline {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+        }
+
+        .checkbox {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 13px;
+            opacity: .95;
+        }
+
+        .btn-primary {
+            background: var(--accent);
+            color: #0a0a0a;
+            border: none;
+            padding: 12px 14px;
+            border-radius: 12px;
+            font-weight: 800;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+
+            .btn-primary[disabled] {
+                opacity: .6;
+                cursor: not-allowed;
+            }
+
+        .msg {
+            min-height: 18px;
+            font-size: 13px;
+            margin-top: 4px;
+            color: #fca5a5;
+        }
+
+            .msg.ok {
+                color: #86efac;
+            }
+
+        .helper {
+            margin-top: 8px;
+            display: flex;
+            justify-content: space-between;
+            font-size: 12px;
+            opacity: .75;
+        }
+
+            .helper a {
+                color: var(--accent);
+                text-decoration: none;
+            }
+
+        .loader {
+            width: 16px;
+            height: 16px;
+            border: 2px solid #000;
+            border-right-color: transparent;
+            border-radius: 50%;
+            animation: spin .7s linear infinite;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+    </style>
+</head>
+
+<body class="login-wrap">
+    <main class="login-card">
+        <div class="brand">
+            <div class="logo-dot"></div>
+            <h1>Accounting Admin</h1>
+            <span class="ver">v1.0</span>
+        </div>
+
+        <form class="login-form" onsubmit="return false;">
+            <!-- Username -->
+            <div>
+                <label class="label" for="u">Tài khoản</label>
+                <div class="input-wrap">
+                    <span class="icon">👤</span>
+                    <input id="u" autocomplete="username" placeholder="ví dụ: admin" />
+                </div>
+            </div>
+
+            <!-- Password -->
+            <div>
+                <label class="label" for="p">Mật khẩu</label>
+                <div class="input-wrap">
+                    <span class="icon">🔒</span>
+                    <input id="p" type="password" autocomplete="current-password" placeholder="••••••••" />
+                    <span class="toggle" id="togglePw" title="Hiện/ẩn">Hiện</span>
+                </div>
+            </div>
+
+            <div class="row-inline">
+                <label class="checkbox"><input id="remember" type="checkbox" /> Ghi nhớ tôi</label>
+                <a href="#" onclick="alert('Liên hệ quản trị viên để đặt lại mật khẩu');return false;">Quên mật khẩu?</a>
+            </div>
+
+            <button class="btn-primary" id="btn">
+                <span class="loader" id="spin" style="display:none"></span>
+                <span id="btnText">Đăng nhập</span>
+            </button>
+
+            <div class="msg" id="msg"></div>
+
+            <div class="helper">
+                <span>© eCommunity Accounting</span>
+                <a href="#" onclick="toggleTheme();return false;">Chuyển theme</a>
+            </div>
+        </form>
+    </main>
+
+    <script>
+        // ===== helpers
+        const $ = s => document.querySelector(s);
+        const u = $('#u'), p = $('#p'), btn = $('#btn'), msg = $('#msg'), spin = $('#spin'), btnText = $('#btnText');
+
+        $('#togglePw').addEventListener('click', () => {
+            const isPwd = p.type === 'password';
+            p.type = isPwd ? 'text' : 'password';
+            $('#togglePw').textContent = isPwd ? 'Ẩn' : 'Hiện';
+        });
+
+        function setBusy(b) {
+            btn.disabled = b;
+            spin.style.display = b ? 'inline-block' : 'none';
+            btnText.textContent = b ? 'Đang kiểm tra…' : 'Đăng nhập';
+        }
+        function show(text, ok = false) {
+            msg.textContent = text || '';
+            msg.classList.toggle('ok', ok);
+        }
+        function toggleTheme() {
+            const root = document.documentElement;
+            const isLight = root.getAttribute('data-theme') === 'light';
+            root.setAttribute('data-theme', isLight ? 'dark' : 'light');
+        }
+
+        // ===== login flow
+        async function doLogin() {
+            const username = (u.value || '').trim();
+            const password = p.value || '';
+            if (!username || !password) { show('Vui lòng nhập đầy đủ thông tin.'); return; }
+
+            setBusy(true); show('');
+            try {
+                if (window.chrome?.webview) {
+                    window.chrome.webview.postMessage({
+                        cmd: 'login',
+                        username, password,
+                        remember: $('#remember').checked
+                    });
+                } else {
+                    // Fallback demo khi mở tệp trực tiếp trên trình duyệt
+                    if (username === 'admin' && password === 'Admin@123') {
+                        localStorage.setItem('userInfo', JSON.stringify({ username: 'admin', fullname: 'Administrator', role: 'Admin' }));
+                        location.href = 'index.html';
+                    } else {
+                        show('Sai tài khoản hoặc mật khẩu.');
+                    }
+                }
+            } finally { setBusy(false); }
+        }
+
+        btn.addEventListener('click', doLogin);
+        document.addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
+
+        // ===== nhận kết quả từ C# (WebView2)
+        if (window.chrome?.webview) {
+            window.chrome.webview.addEventListener('message', e => {
+                const data = e.data || {};
+                if (data.type === 'login_ok') {
+                    // C# nên trả: { type:'login_ok', user:{ username, fullName }, roles:['Admin', ...] }
+                    const user = data.user || {};
+                    const role = (data.roles && data.roles[0]) || 'User';
+                    localStorage.setItem('userInfo', JSON.stringify({
+                        username: user.username || 'user',
+                        fullname: user.fullName || user.username || 'User',
+                        role
+                    }));
+                    show('Đăng nhập thành công!', true);
+                    setTimeout(() => location.href = 'index.html', 150);
+                }
+                else if (data.type === 'login_fail') {
+                    show(data.message || 'Sai tài khoản hoặc mật khẩu.');
+                }
+            });
+        }
+
+        // ===== autofill nhẹ cho dev (tuỳ chọn)
+        // u.value = 'admin'; p.value = 'Admin@123';
+    </script>
+</body>
+</html>

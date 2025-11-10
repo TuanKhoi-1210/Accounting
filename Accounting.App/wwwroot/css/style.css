@@ -491,3 +491,110 @@ input[type=number]::-webkit-inner-spin-button {
 input[type=number] {
     -moz-appearance: textfield;
 }
+/* ==== LOGIN PAGE ==== */
+.login-page {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    background: #0d1117;
+}
+
+.login-box {
+    background: #161b22;
+    padding: 2rem 2.5rem;
+    border-radius: 12px;
+    box-shadow: 0 0 12px rgba(0,0,0,0.4);
+    width: 360px;
+}
+
+    .login-box h2 {
+        margin-bottom: 0.5rem;
+        font-size: 1.3rem;
+        color: #fff;
+        text-align: center;
+    }
+
+    .login-box p {
+        text-align: center;
+        color: #8b949e;
+        font-size: 0.9rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .login-box .input {
+        width: 100%;
+        margin-bottom: 1rem;
+        background: #0d1117;
+        border: 1px solid #30363d;
+        color: #c9d1d9;
+        padding: 0.6rem 0.8rem;
+        border-radius: 8px;
+    }
+
+    .login-box .btn {
+        width: 100%;
+        padding: 0.7rem;
+        border: none;
+        border-radius: 8px;
+        background: #238636;
+        color: #fff;
+        cursor: pointer;
+        font-weight: 500;
+    }
+
+        .login-box .btn:hover {
+            background: #2ea043;
+        }
+
+/* ==== USER FORM (CẤU HÌNH) ==== */
+.user-form {
+    background: #161b22;
+    padding: 1.5rem;
+    border-radius: 12px;
+    margin-top: 1rem;
+}
+
+    .user-form label {
+        display: block;
+        margin-bottom: 0.3rem;
+        color: #c9d1d9;
+        font-weight: 500;
+    }
+
+    .user-form .input, .user-form select {
+        width: 100%;
+        margin-bottom: 1rem;
+        background: #0d1117;
+        border: 1px solid #30363d;
+        color: #c9d1d9;
+        padding: 0.6rem 0.8rem;
+        border-radius: 8px;
+    }
+
+    .user-form .btn {
+        padding: 0.6rem 1.2rem;
+        border-radius: 8px;
+        border: none;
+        cursor: pointer;
+        font-weight: 500;
+    }
+
+        .user-form .btn.primary {
+            background: #238636;
+            color: #fff;
+        }
+
+            .user-form .btn.primary:hover {
+                background: #2ea043;
+            }
+
+        .user-form .btn.cancel {
+            background: #21262d;
+            color: #c9d1d9;
+            margin-right: 0.5rem;
+        }
+
+            .user-form .btn.cancel:hover {
+                background: #30363d;
+            }

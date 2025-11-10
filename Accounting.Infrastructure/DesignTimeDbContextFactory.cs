@@ -7,7 +7,7 @@ namespace Accounting.Infrastructure
     {
         public AccountingDbContext CreateDbContext(string[] args)
         {
-            var cs = "Server=localhost\\SQLEXPRESS;Database=AccountingDB;Trusted_Connection=True;TrustServerCertificate=True;";
+            var cs = "Server=.\\SQLEXPRESS04;Database=AccountingDB;Trusted_Connection=True;TrustServerCertificate=True;";
             var options = new DbContextOptionsBuilder<AccountingDbContext>()
                 .UseSqlServer(cs, x => x.MigrationsHistoryTable("__EFMigrationsHistory", AccountingDbContext.Schema))
                 .Options;

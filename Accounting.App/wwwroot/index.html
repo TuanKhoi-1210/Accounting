@@ -7,19 +7,16 @@
     <link rel="stylesheet" href="css/style.css" />
 </head>
 <body>
-    <!-- Thanh tiêu đề -->
     <header class="topbar">
         <div class="logo">📊 Accounting</div>
-        <div class="top-actions">
-            <span class="user">👩‍💼 Kế toán trưởng</span>
-            <button id="btnLogout">Đăng xuất</button>
+        <div class="top-actions" id="userBox">
+            <!-- JS sẽ chèn nội dung user ở đây -->
         </div>
     </header>
 
     <!-- Thanh điều hướng bên trái -->
     <nav class="sidebar">
         <h3>Phân hệ</h3>
-        <button data-view="dashboard">🏠 Tổng quan</button>
         <button data-view="purchase">🛒 Mua hàng</button>
         <button data-view="sales">💼 Bán hàng</button>
         <button data-view="inventory">📦 Kho</button>
@@ -27,7 +24,6 @@
         <button data-view="cash">💵 Tiền mặt</button>
         <button data-view="bank">🏦 Ngân hàng</button>
         <button data-view="report">📈 Báo cáo</button>
-        <button data-view="tax">🧾 Thuế</button>
         <button data-view="settings">⚙️ Cấu hình</button>
     </nav>
 
@@ -39,66 +35,176 @@
 
     <script>
         const app = document.getElementById("app");
+        const isWebView = !!(window.chrome && window.chrome.webview);
+        let currentUser = null;
 
-        function renderDashboard() {
-            app.innerHTML = `
-                                      <section class="grid kpi-grid">
-                                        <div class="card kpi"><div class="kpi-label">Doanh thu tháng</div><div class="kpi-value">₫ 0</div></div>
-                                        <div class="card kpi"><div class="kpi-label">Chi phí tháng</div><div class="kpi-value">₫ 0</div></div>
-                                        <div class="card kpi"><div class="kpi-label">Lợi nhuận gộp</div><div class="kpi-value">₫ 0</div></div>
-                                        <div class="card kpi"><div class="kpi-label">Công nợ phải thu</div><div class="kpi-value">₫ 0</div></div>
-                                        <div class="card kpi"><div class="kpi-label">Công nợ phải trả</div><div class="kpi-value">₫ 0</div></div>
-                                        <div class="card kpi"><div class="kpi-label">Giá trị tồn kho</div><div class="kpi-value">₫ 0</div></div>
-                                      </section>
-
-                                      <section class="grid two-col">
-                                        <div class="card">
-                                          <header class="card-title">📅 Nhắc việc & Cảnh báo</header>
-                                          <ul class="alerts">
-                                            <li>🧾 Tờ khai thuế GTGT kỳ này: <b>chưa nộp</b></li>
-                                            <li>💳 Hóa đơn bán đến hạn thanh toán: <b>0</b> chứng từ</li>
-                                            <li>📦 Mặt hàng tồn kho thấp: <b>0</b> mặt hàng</li>
-                                          </ul>
-                                        </div>
-
-                                        <div class="card">
-                                          <header class="card-title">📦 Tồn kho thấp</header>
-                                          <div class="table-wrap">
-                                            <table class="table">
-                                              <thead><tr><th>Mã hàng</th><th>Tên hàng</th><th>Tồn</th><th>Ngưỡng</th></tr></thead>
-                                              <tbody>
-                                                <tr><td colspan="4" class="empty">Chưa có dữ liệu</td></tr>
-                                              </tbody>
-                                            </table>
-                                          </div>
-                                        </div>
-
-                                        <div class="card">
-                                          <header class="card-title">💰 Công nợ đến hạn (Phải thu)</header>
-                                          <div class="table-wrap">
-                                            <table class="table">
-                                              <thead><tr><th>Khách hàng</th><th>Số tiền</th><th>Hạn TT</th><th>Trạng thái</th></tr></thead>
-                                              <tbody>
-                                                <tr><td colspan="4" class="empty">Chưa có dữ liệu</td></tr>
-                                              </tbody>
-                                            </table>
-                                          </div>
-                                        </div>
-
-                                        <div class="card">
-                                          <header class="card-title">🏦 Đối chiếu ngân hàng</header>
-                                          <div class="table-wrap">
-                                            <table class="table">
-                                              <thead><tr><th>Tài khoản</th><th>Số dư sổ</th><th>Số dư NH</th><th>Chênh lệch</th></tr></thead>
-                                              <tbody>
-                                                <tr><td colspan="4" class="empty">Chưa có dữ liệu</td></tr>
-                                              </tbody>
-                                            </table>
-                                          </div>
-                                        </div>
-                                      </section>
-                                    `;
+        // ==== MODE LOGIN / SIDEBAR ====
+        function setLoginMode(isLogin) {
+            document.body.classList.toggle("is-login", isLogin);
         }
+
+        function setSidebarEnabled(enabled) {
+            const buttons = document.querySelectorAll("nav.sidebar button");
+            buttons.forEach(btn => {
+                btn.disabled = !enabled;
+                btn.classList.toggle("disabled", !enabled);
+            });
+        }
+
+        // ==== HELPER USER ====
+        function normalizeUser(raw) {
+            if (!raw) return null;
+            return {
+                id: raw.id ?? raw.Id ?? null,
+                tenDangNhap: raw.tenDangNhap ?? raw.TenDangNhap ?? "",
+                hoTen: raw.hoTen ?? raw.HoTen ?? "",
+                vaiTro: raw.vaiTro ?? raw.VaiTro ?? "",
+                dangHoatDong: raw.dangHoatDong ?? raw.DangHoatDong ?? true
+            };
+        }
+
+        // ==== WEBVIEW BRIDGE ====
+        function api(cmd, payload = {}) {
+            if (!isWebView) {
+                console.warn("Not running inside WebView2 — returning mock.");
+                return Promise.resolve({ ok: true, mock: true });
+            }
+            window.chrome.webview.postMessage({ cmd, ...payload });
+            return new Promise(resolve => {
+                function handler(e) {
+                    try { resolve(JSON.parse(e.data)); }
+                    catch { resolve(e.data); }
+                    window.chrome.webview.removeEventListener('message', handler);
+                }
+                window.chrome.webview.addEventListener('message', handler);
+            });
+        }
+
+        // ==== LOGIN UI ====
+        function renderLogin() {
+            setLoginMode(true);
+            setSidebarEnabled(false);
+
+            app.innerHTML = `
+          <div class="login-page">
+            <div class="login-box card">
+              <h2>Đăng nhập hệ thống</h2>
+              <p class="login-subtitle">
+                Quản lý mua hàng, bán hàng, kho, công nợ và dòng tiền cho doanh nghiệp in ấn bao bì giấy.
+              </p>
+
+              <div class="form-group">
+                <label>Tên đăng nhập</label>
+                <input id="loginUser" type="text" class="input" autocomplete="username" placeholder="Ví dụ: admin">
+              </div>
+
+              <div class="form-group">
+                <label>Mật khẩu</label>
+                <input id="loginPass" type="password" class="input" autocomplete="current-password" placeholder="Nhập mật khẩu">
+              </div>
+
+              <div class="form-group">
+                <button id="btnLogin" class="btn primary w-100">Đăng nhập</button>
+              </div>
+
+              <div id="loginError" class="login-error"></div>
+            </div>
+          </div>
+        `;
+
+            const btnLogin = document.getElementById("btnLogin");
+            const passInput = document.getElementById("loginPass");
+
+            if (btnLogin) btnLogin.addEventListener("click", doLogin);
+            if (passInput) {
+                passInput.addEventListener("keydown", e => {
+                    if (e.key === "Enter") doLogin();
+                });
+            }
+        }
+
+        async function doLogin() {
+            const user = document.getElementById("loginUser").value.trim();
+            const pass = document.getElementById("loginPass").value;
+
+            const errBox = document.getElementById("loginError");
+            errBox.textContent = "";
+
+            try {
+                const rs = await api("login", { tenDangNhap: user, matKhau: pass });
+                console.log("login response", rs);
+
+                if (!rs || rs.ok === false) {
+                    errBox.textContent = rs?.error || "Đăng nhập thất bại.";
+                    return;
+                }
+
+                const rawUser = rs.user || rs.data || rs;
+                currentUser = normalizeUser(rawUser);
+
+                if (!currentUser) {
+                    errBox.textContent = "Dữ liệu người dùng không hợp lệ.";
+                    return;
+                }
+
+                setLoginMode(false);
+                setSidebarEnabled(true);
+                renderShell();
+                updateUserBox();
+            } catch (err) {
+                console.error(err);
+                errBox.textContent = err.error || "Đăng nhập thất bại.";
+            }
+        }
+
+        // ==== TOPBAR USER BOX ====
+        function updateUserBox() {
+            const box = document.getElementById("userBox");
+            if (!box) return;
+
+            if (!currentUser) {
+                box.innerHTML = `<span class="user">Chưa đăng nhập</span>`;
+                return;
+            }
+
+            const roleMap = {
+                admin: "Quản trị hệ thống",
+                ke_toan: "Kế toán",
+                kho: "Nhân viên kho",
+                mua_ban: "Nhân viên mua/bán hàng",
+            };
+
+            box.innerHTML = `
+          <div class="user-info">
+            <div class="user-name">👩‍💼  ${currentUser.hoTen}</div>
+            <div class="user-role">${currentUser.vaiTro}</div>
+          </div>
+          <button id="btnLogout" class="btn small danger">Đăng xuất</button>
+        `;
+
+            const btnLogout = document.getElementById("btnLogout");
+            if (btnLogout) {
+                btnLogout.addEventListener("click", async () => {
+                    try { await api("logout"); } catch (err) { console.warn("Logout error:", err); }
+                    currentUser = null;
+                    setSidebarEnabled(false);
+                    renderLogin();
+                    updateUserBox();
+                });
+            }
+        }
+
+        // ==== TRANG CHÍNH SAU LOGIN ====
+        function renderShell() {
+            setLoginMode(false);
+            app.innerHTML = `
+            <h1>Xin chào, ${currentUser?.hoTen || currentUser?.tenDangNhap || ""}</h1>
+            <p>Chọn một phân hệ ở thanh bên để bắt đầu làm việc.</p>
+        `;
+            updateUserBox();
+        }
+
+
         /* ====== MUA HÀNG: DANH SÁCH ====== */
         /* ====== MUA HÀNG: DANH SÁCH ====== */
         function renderPurchaseList() {
@@ -145,7 +251,9 @@
         </table>
       </div>
     </div>
-  `;
+    `;
+
+
 
             // điều hướng
             document.getElementById("btnCreatePO").addEventListener("click", renderPurchaseCreate);
@@ -185,7 +293,6 @@
             document.getElementById("poStatus").addEventListener("change", renderRows);
 
             // load ngay lần đầu
-            loadPOs();
 
             async function loadPOs() {
                 const body = document.getElementById('poBody');
@@ -204,6 +311,7 @@
                     body.innerHTML = `<tr><td colspan="6" class="empty error">Không tải được dữ liệu.</td></tr>`;
                 }
             }
+
 
             function renderRows() {
                 const body = document.getElementById('poBody');
@@ -260,14 +368,10 @@
                     });
                 });
             }
+
+            loadPOs();
         }
 
-
-
-        /* ====== MUA HÀNG: CHI TIẾT ĐƠN ====== */
-        /* ====== MUA HÀNG: CHI TIẾT ĐƠN ====== */
-        /* ====== MUA HÀNG: CHI TIẾT ĐƠN ====== */
-        /* ====== MUA HÀNG: CHI TIẾT ĐƠN ====== */
         async function renderPurchaseDetail(id) {
             const fmtMoney = n => (n || 0).toLocaleString("vi-VN", { style: "currency", currency: "VND" });
             const fmtDate = s => {
@@ -1611,7 +1715,7 @@
             <td>${o.soCt || ""}</td>
             <td>${o.khachHang || ""}</td>
             <td>${formatDate(o.ngayDon)}</td>
-            <td class="right">${formatMoney(o.tienHang)}</td>
+            <td class="right">${formatMoney(o.giaTri ?? 0)}</td>
             <td>${badgeHtml(o.trangThai)}</td>
             <td><button class="btn link" data-id="${o.id}">Xem</button></td>
           </tr>
@@ -3457,7 +3561,10 @@
 
 
 
-
+        let debtARData = [];      // dữ liệu tổng hợp AR (getCongNoKh)
+        let debtAPData = [];      // dữ liệu tổng hợp AP (getCongNoNcc)
+        let remindARData = [];    // dữ liệu nhắc nợ AR (getNhacNoKh)
+        let remindAPData = [];    // dữ liệu nhắc nợ AP (getNhacNoNcc)
 
 
         /* ====== KHO: LẬP CHỨNG TỪ (PN/PX/MO) ====== */
@@ -3580,7 +3687,6 @@
                       <div class="btn-group">
                         <button class="btn tab active" data-tab="ar">Phải thu (AR)</button>
                         <button class="btn tab" data-tab="ap">Phải trả (AP)</button>
-                        <button class="btn tab" data-tab="aging">Tuổi nợ (Aging)</button>
                         <button class="btn tab" data-tab="remind">Nhắc nợ đến hạn</button>
                       </div>
                     </div>
@@ -3600,7 +3706,6 @@
                       <option>Năm nay</option>
                     </select>
                     <div class="spacer"></div>
-                    <button class="btn">Xuất Excel</button>
                   </div>
 
                   <div id="debtContent"></div>
@@ -3609,388 +3714,1566 @@
             // render tab mặc định
             renderDebtTab('ar');
 
+            const toolbar = document.querySelector('.toolbar');
+            const searchInput = toolbar.querySelector('input');
+            const statusSelect = toolbar.querySelectorAll('select')[0];
+            const periodSelect = toolbar.querySelectorAll('select')[1];
+
+            searchInput.addEventListener('input', applyDebtFilter);
+            statusSelect.addEventListener('change', applyDebtFilter);
+            periodSelect.addEventListener('change', applyDebtFilter);
+
+            updateStatusOptions('ar'); 
             // gắn sự kiện tab
             document.querySelectorAll('.btn.tab').forEach(b => {
                 b.addEventListener('click', () => {
                     document.querySelectorAll('.btn.tab').forEach(x => x.classList.remove('active'));
                     b.classList.add('active');
-                    renderDebtTab(b.dataset.tab);
+
+                    const tab = b.dataset.tab;
+                    updateStatusOptions(tab); // đổi option trạng thái theo tab
+                    renderDebtTab(tab);
+                    applyDebtFilter();        // áp lại filter với tab mới
                 });
             });
         }
 
         function renderDebtTab(tab) {
             const wrap = document.getElementById('debtContent');
-            if (tab === 'ar') {
-                wrap.innerHTML = `
-                    <div class="card">
-                      <header class="card-title">Phải thu khách hàng</header>
-                      <div class="table-wrap">
-                        <table class="table">
-                          <thead>
-                            <tr>
-                              <th>Khách hàng</th><th>Số CT</th><th>Ngày</th>
-                              <th>Số tiền</th><th>Đã thu</th><th>Còn lại</th><th>Hạn TT</th><th>Trạng thái</th><th></th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            <tr>
-                              <td>Cty Bao Bì Minh Quân</td><td>INV-2025-001</td><td>05/10/2025</td>
-                              <td>₫ 420,000,000</td><td>₫ 200,000,000</td><td>₫ 220,000,000</td><td>20/10/2025</td>
-                              <td><span class="badge due">Đến hạn</span></td><td><button class="btn link">Nhắc nợ</button></td>
-                            </tr>
-                            <tr>
-                              <td>Vinprint JSC</td><td>INV-2025-002</td><td>08/10/2025</td>
-                              <td>₫ 18,700,000</td><td>₫ 0</td><td>₫ 18,700,000</td><td>28/10/2025</td>
-                              <td><span class="badge ok">Trong hạn</span></td><td><button class="btn link">Nhắc nợ</button></td>
-                            </tr>
-                            <tr><td colspan="9" class="empty">…</td></tr>
-                          </tbody>
-                        </table>
-                      </div>
-                    </div>
-                  `;
-            } else if (tab === 'ap') {
-                wrap.innerHTML = `
-                    <div class="card">
-                      <header class="card-title">Phải trả nhà cung cấp</header>
-                      <div class="table-wrap">
-                        <table class="table">
-                          <thead>
-                            <tr>
-                              <th>Nhà cung cấp</th><th>Số CT</th><th>Ngày</th>
-                              <th>Số tiền</th><th>Đã trả</th><th>Còn lại</th><th>Hạn TT</th><th>Trạng thái</th><th></th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            <tr>
-                              <td>Cty Giấy Hòa Việt</td><td>PINV-2025-015</td><td>04/10/2025</td>
-                              <td>₫ 350,000,000</td><td>₫ 150,000,000</td><td>₫ 200,000,000</td><td>18/10/2025</td>
-                              <td><span class="badge over">Quá hạn</span></td><td><button class="btn link">Lên lịch trả</button></td>
-                            </tr>
-                            <tr>
-                              <td>Cty Mực In Á Châu</td><td>PINV-2025-016</td><td>10/10/2025</td>
-                              <td>₫ 8,500,000</td><td>₫ 0</td><td>₫ 8,500,000</td><td>25/10/2025</td>
-                              <td><span class="badge ok">Trong hạn</span></td><td><button class="btn link">Lên lịch trả</button></td>
-                            </tr>
-                            <tr><td colspan="9" class="empty">…</td></tr>
-                          </tbody>
-                        </table>
-                      </div>
-                    </div>
-                  `;
-            } else if (tab === 'aging') {
-                wrap.innerHTML = `
-                    <div class="grid two-col">
-                      <div class="card">
-                        <header class="card-title">Aging phải thu (AR)</header>
-                        <div class="table-wrap">
-                          <table class="table">
-                            <thead>
-                              <tr><th>Nhóm tuổi nợ</th><th>Số dư</th><th>Tỷ trọng</th></tr>
-                            </thead>
-                            <tbody>
-                              <tr><td>0–30 ngày</td><td>₫ 180,000,000</td><td>45%</td></tr>
-                              <tr><td>31–60 ngày</td><td>₫ 150,000,000</td><td>38%</td></tr>
-                              <tr><td>61–90 ngày</td><td>₫ 50,000,000</td><td>12%</td></tr>
-                              <tr><td>> 90 ngày</td><td>₫ 20,000,000</td><td>5%</td></tr>
-                              <tr><td colspan="3" class="empty">…</td></tr>
-                            </tbody>
-                          </table>
-                        </div>
-                      </div>
 
-                      <div class="card">
-                        <header class="card-title">Aging phải trả (AP)</header>
-                        <div class="table-wrap">
-                          <table class="table">
-                            <thead>
-                              <tr><th>Nhóm tuổi nợ</th><th>Số dư</th><th>Tỷ trọng</th></tr>
-                            </thead>
-                            <tbody>
-                              <tr><td>0–30 ngày</td><td>₫ 90,000,000</td><td>52%</td></tr>
-                              <tr><td>31–60 ngày</td><td>₫ 55,000,000</td><td>32%</td></tr>
-                              <tr><td>61–90 ngày</td><td>₫ 20,000,000</td><td>12%</td></tr>
-                              <tr><td>> 90 ngày</td><td>₫ 8,000,000</td><td>4%</td></tr>
-                              <tr><td colspan="3" class="empty">…</td></tr>
-                            </tbody>
-                          </table>
-                        </div>
-                      </div>
-                    </div>
-                  `;
+            if (tab === 'ar') {
+                loadDebtAR();
+            } else if (tab === 'ap') {
+                loadDebtAP();
             } else if (tab === 'remind') {
-                wrap.innerHTML = `
-                    <div class="card">
-                      <header class="card-title">Nhắc nợ đến hạn & quá hạn</header>
-                      <ul class="alerts">
-                        <li>💳 <b>AR</b> – Minh Quân: còn ₫ 220,000,000, hạn 20/10/2025 → <span class="badge due">Đến hạn</span></li>
-                        <li>🏭 <b>AP</b> – Giấy Hòa Việt: còn ₫ 200,000,000, hạn 18/10/2025 → <span class="badge over">Quá hạn</span></li>
-                        <li>👔 <b>AR</b> – Vinprint JSC: còn ₫ 18,700,000, hạn 28/10/2025 → <span class="badge ok">Trong hạn</span></li>
-                      </ul>
-                      <div class="form-actions" style="justify-content:flex-start">
-                        <button class="btn">Gửi email nhắc nợ</button>
-                        <button class="btn">Xuất danh sách</button>
-                      </div>
-                    </div>
-                  `;
+                loadDebtRemind();
+            }
+        }
+        function applyDebtFilter() {
+            const toolbar = document.querySelector('.toolbar');
+            if (!toolbar) return;
+
+            const kw = toolbar.querySelector('input').value.toLowerCase().trim();
+            const status = toolbar.querySelectorAll('select')[0].value;
+            const period = toolbar.querySelectorAll('select')[1].value;
+            const activeTab = document.querySelector('.btn.tab.active')?.dataset.tab;
+
+            const now = new Date();
+            let startDate = null;
+            if (period === "Tháng này") {
+                startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+            } else if (period === "Quý này") {
+                const q = Math.floor(now.getMonth() / 3);
+                startDate = new Date(now.getFullYear(), q * 3, 1);
+            } else if (period === "Năm nay") {
+                startDate = new Date(now.getFullYear(), 0, 1);
+            }
+
+            const matchKw = (text) => {
+                if (!kw) return true;
+                if (!text) return false;
+                return text.toLowerCase().includes(kw);
+            };
+
+            // ===== AR: tổng hợp theo khách hàng =====
+            if (activeTab === 'ar') {
+                const filtered = debtARData.filter(r => {
+                    const name = (r.tenKhachHang ?? r.TenKhachHang ?? "").toLowerCase();
+                    if (!matchKw(name)) return false;
+
+                    // trạng thái công nợ: dựa vào ConNo
+                    const conNo = (r.conNo ?? r.ConNo ??
+                        ((r.tongPhaiThu ?? r.TongPhaiThu ?? 0) - (r.daThanhToan ?? r.DaThanhToan ?? 0)));
+
+                    if (status === "Còn nợ" && conNo === 0) return false;
+                    if (status === "Đã tất toán" && conNo !== 0) return false;
+
+                    return true;
+                });
+
+                renderDebtARTable(filtered);
+                return;
+            }
+
+            // ===== AP: tổng hợp theo nhà cung cấp =====
+            if (activeTab === 'ap') {
+                const filtered = debtAPData.filter(r => {
+                    const name = (r.tenNhaCungCap ?? r.TenNhaCungCap ?? "").toLowerCase();
+                    if (!matchKw(name)) return false;
+
+                    const conNo = (r.conNo ?? r.ConNo ??
+                        ((r.tongPhaiTra ?? r.TongPhaiTra ?? 0) - (r.daThanhToan ?? r.DaThanhToan ?? 0)));
+
+                    if (status === "Còn nợ" && conNo === 0) return false;
+                    if (status === "Đã tất toán" && conNo !== 0) return false;
+
+                    return true;
+                });
+
+                renderDebtAPTable(filtered);
+                return;
+            }
+
+            // ===== REMIND: dùng Đến hạn / Quá hạn / Trong hạn + khoảng thời gian =====
+            if (activeTab === 'remind') {
+                const statusFilter = (st) => {
+                    if (status === "Tất cả trạng thái") return true;
+                    if (status === "Đến hạn") return st === "den_han";
+                    if (status === "Quá hạn") return st === "qua_han";
+                    if (status === "Trong hạn") return st === "trong_han";
+                    return true;
+                };
+
+                const filterFn = (r) => {
+                    const name = (r.tenKhachHang ?? "").toLowerCase();
+                    const soct = (r.soHoaDon ?? "").toLowerCase();
+                    const st = (r.trangThaiHan ?? r.TrangThaiHan ?? "trong_han");
+                    const ngayHd = r.ngayHoaDon ?? r.NgayHoaDon;
+                    const d = ngayHd ? new Date(ngayHd) : null;
+
+                    if (kw && !name.includes(kw) && !soct.includes(kw)) return false;
+                    if (!statusFilter(st)) return false;
+                    if (startDate && d && d < startDate) return false;
+
+                    return true;
+                };
+
+                const arFiltered = remindARData.filter(filterFn);
+                const apFiltered = remindAPData.filter(filterFn);
+                renderDebtRemindBoth(arFiltered, apFiltered);
+                return;
             }
         }
 
-        function renderCash() {
+
+        function updateStatusOptions(tab) {
+            const statusSelect = document.querySelector('.toolbar select');
+            if (!statusSelect) return;
+
+            statusSelect.innerHTML = "";
+
+            if (tab === "remind") {
+                // Tab Nhắc nợ: dùng trạng thái hạn thanh toán
+                ["Tất cả trạng thái", "Đến hạn", "Quá hạn", "Trong hạn"].forEach(text => {
+                    const opt = document.createElement("option");
+                    opt.textContent = text;
+                    opt.value = text;
+                    statusSelect.appendChild(opt);
+                });
+            } else {
+                // Tab AR/AP: dùng trạng thái công nợ tổng hợp
+                ["Tất cả", "Còn nợ", "Đã tất toán"].forEach(text => {
+                    const opt = document.createElement("option");
+                    opt.textContent = text;
+                    opt.value = text;
+                    statusSelect.appendChild(opt);
+                });
+            }
+        }
+
+
+        async function loadDebtRemind() {
+            const wrap = document.getElementById('debtContent');
+            wrap.innerHTML = `<p class="muted">Đang tải danh sách nhắc nợ...</p>`;
+
+            try {
+                // GỌI LẦN LƯỢT, KHÔNG DÙNG Promise.all
+                const ar = await api("getNhacNoKh");
+                const ap = await api("getNhacNoNcc");
+                remindARData = ar || [];
+                remindAPData = ap || [];
+                renderDebtRemindBoth(remindARData, remindAPData);
+            } catch (e) {
+                console.error(e);
+                wrap.innerHTML = `<p class="error">Lỗi khi tải danh sách nhắc nợ.</p>`;
+            }
+        }
+        async function loadSupplierContact(nccId) {
+            const panel = document.getElementById("khContactPanel");
+            if (!panel) return;
+
+            panel.innerHTML = `<p class="muted">Đang tải thông tin nhà cung cấp...</p>`;
+
+            try {
+                const info = await api("getNccDetail", { id: nccId });
+                if (!info) {
+                    panel.innerHTML = `<p class="error">Không tìm thấy thông tin nhà cung cấp.</p>`;
+                    return;
+                }
+
+                panel.innerHTML = `
+      <h4>Thông tin liên hệ nhà cung cấp</h4>
+      <p><b>${info.ten ?? info.Ten}</b></p>
+      ${info.soDienThoai || info.SoDienThoai ? `
+        <p>Điện thoại: 
+          <a href="tel:${info.soDienThoai ?? info.SoDienThoai}">
+            ${info.soDienThoai ?? info.SoDienThoai}
+          </a>
+        </p>` : ""}
+      ${info.email || info.Email ? `
+        <p>Email: 
+          <a href="mailto:${info.email ?? info.Email}">
+            ${info.email ?? info.Email}
+          </a>
+        </p>` : ""}
+      ${info.diaChi || info.DiaChi ? `
+        <p>Địa chỉ: ${info.diaChi ?? info.DiaChi}</p>` : ""}
+      ${info.maSoThue || info.MaSoThue ? `
+        <p>Mã số thuế: ${info.maSoThue ?? info.MaSoThue}</p>` : ""}
+    `;
+            } catch (e) {
+                console.error(e);
+                panel.innerHTML = `<p class="error">Lỗi khi tải thông tin nhà cung cấp.</p>`;
+            }
+        }
+
+
+
+        function renderDebtRemindBoth(ar, ap) {
+            arData = ar;
+            apData = ap;
+            const wrap = document.getElementById("debtContent");
+
+            if ((!ar || ar.length === 0) && (!ap || ap.length === 0)) {
+                wrap.innerHTML = `
+      <div class="card">
+        <header class="card-title">Nhắc nợ đến hạn & quá hạn</header>
+        <p class="muted">Không có công nợ đến hạn.</p>
+      </div>`;
+                return;
+            }
+
+            const renderRows = (rows, type) =>
+                rows.map(r => {
+                    const status = r.trangThaiHan || "trong_han";
+                    let badgeClass = "ok", badgeText = "Trong hạn";
+                    if (status === "qua_han") {
+                        badgeClass = "over";
+                        badgeText = `Quá hạn ${r.soNgayQuaHan || 0} ngày`;
+                    } else if (status === "den_han") {
+                        badgeClass = "due";
+                        badgeText = "Đến hạn hôm nay";
+                    }
+
+                    const han = r.hanThanhToan || "";
+                    const name = r.tenKhachHang || "";
+                    const soct = r.soHoaDon || "";
+                    const money = fmtMoney(r.conNo || (r.tongTien - r.daThanhToan));
+
+                    return `
+        <tr>
+          <td>${name}</td>
+          <td>${soct}</td>
+          <td>${fmtDate(r.ngayHoaDon)}</td>
+          <td>${fmtDate(han)}</td>
+          <td class="right">${money}</td>
+          <td><span class="badge ${badgeClass}">${badgeText}</span></td>
+          <td>
+            <button class="btn link" data-type="${type}" data-id="${r.khachHangId}">
+              Xem thông tin
+            </button>
+          </td>
+        </tr>`;
+                }).join("");
+
+            wrap.innerHTML = `
+    <div class="grid two-col">
+      <div class="card">
+        <header class="card-title">Nhắc nợ phải thu (AR)</header>
+        <div class="table-wrap">
+          <table class="table">
+            <thead>
+              <tr>
+                <th>Khách hàng</th>
+                <th>Số HĐ</th>
+                <th>Ngày</th>
+                <th>Hạn TT</th>
+                <th>Còn nợ</th>
+                <th>Trạng thái</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>${renderRows(ar, "ar")}</tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="card">
+        <header class="card-title">Nhắc nợ phải trả (AP)</header>
+        <div class="table-wrap">
+          <table class="table">
+            <thead>
+              <tr>
+                <th>Nhà cung cấp</th>
+                <th>Số HĐ</th>
+                <th>Ngày</th>
+                <th>Hạn TT</th>
+                <th>Còn nợ</th>
+                <th>Trạng thái</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>${renderRows(ap, "ap")}</tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div id="khContactPanel" class="subsection"></div>
+  `;
+
+            wrap.querySelectorAll("button[data-type]").forEach(btn => {
+                btn.addEventListener("click", async () => {
+                    const id = Number(btn.dataset.id);
+                    const type = btn.dataset.type;
+                    if (type === "ar") {
+                        await loadCustomerContact(id);
+                    } else {
+                        await loadSupplierContact(id);
+                    }
+                    
+                });
+            });
+        }
+
+
+
+
+        
+
+        async function loadCustomerContact(khachHangId) {
+            const panel = document.getElementById("khContactPanel");
+            panel.innerHTML = `<p class="muted">Đang tải thông tin khách hàng...</p>`;
+
+            try {
+                const info = await api("getKhachHangDetail", { id: khachHangId });
+                if (!info) {
+                    panel.innerHTML = `<p class="error">Không tìm thấy thông tin khách hàng.</p>`;
+                    return;
+                }
+
+                panel.innerHTML = `
+          <h4>Thông tin liên hệ khách hàng</h4>
+          <p><b>${info.ten ?? info.Ten}</b></p>
+          ${info.nguoiLienHe || info.NguoiLienHe ? `<p>Người liên hệ: ${info.nguoiLienHe ?? info.NguoiLienHe}</p>` : ""}
+          ${info.soDienThoai || info.SoDienThoai ? `<p>Điện thoại: <a href="tel:${info.soDienThoai ?? info.SoDienThoai}">${info.soDienThoai ?? info.SoDienThoai}</a></p>` : ""}
+          ${info.email || info.Email ? `<p>Email: <a href="mailto:${info.email ?? info.Email}">${info.email ?? info.Email}</a></p>` : ""}
+          ${info.diaChi || info.DiaChi ? `<p>Địa chỉ: ${info.diaChi ?? info.DiaChi}</p>` : ""}
+          ${info.maSoThue || info.MaSoThue ? `<p>Mã số thuế: ${info.maSoThue ?? info.MaSoThue}</p>` : ""}
+        `;
+            } catch (e) {
+                console.error(e);
+                panel.innerHTML = `<p class="error">Lỗi khi tải thông tin khách hàng.</p>`;
+            }
+        }
+
+
+        async function loadDebtAR() {
+            const wrap = document.getElementById('debtContent');
+            const fmtDate = s => (s ? new Date(s).toLocaleDateString("vi-VN") : "");
+            const fmtMoney = n => (n || 0).toLocaleString("vi-VN", { style: "currency", currency: "VND" });
+            wrap.innerHTML = `<p class="muted">Đang tải công nợ phải thu...</p>`;
+
+            try {
+                // chiConNo: true = chỉ khách hàng còn nợ, false = tất cả
+                const data = await api("getCongNoKh", { chiConNo: false });
+                debtARData = data || [];
+                renderDebtARTable(debtARData);
+            } catch (err) {
+                console.error(err);
+                wrap.innerHTML = `<p class="error">Lỗi khi tải công nợ phải thu.</p>`;
+            }
+        }
+        function renderDebtARTable(rows) {
+            const wrap = document.getElementById('debtContent');
+            const fmtDate = s => (s ? new Date(s).toLocaleDateString("vi-VN") : "");
+            const fmtMoney = n => (n || 0).toLocaleString("vi-VN", { style: "currency", currency: "VND" });
+
+            if (!rows || rows.length === 0) {
+                wrap.innerHTML = `<p class="muted">Không có dữ liệu công nợ phải thu.</p>`;
+                return;
+            }
+
+            const htmlRows = rows.map((r, i) => `
+        <tr>
+          <td>${i + 1}</td>
+          <td>${r.tenKhachHang ?? r.TenKhachHang}</td>
+          <td style="text-align:right">${fmtMoney(r.tongPhaiThu ?? r.TongPhaiThu)}</td>
+          <td style="text-align:right">${fmtMoney(r.daThanhToan ?? r.DaThanhToan)}</td>
+          <td style="text-align:right">${fmtMoney(r.conNo ?? r.ConNo)}</td>
+        </tr>
+    `).join("");
+
+            wrap.innerHTML = `
+        <div class="card">
+          <header class="card-title">Phải thu khách hàng (tổng hợp theo khách hàng)</header>
+          <div class="table-wrap">
+            <table class="table">
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Khách hàng</th>
+                  <th>Tổng phải thu</th>
+                  <th>Đã thu</th>
+                  <th>Còn lại</th>
+                </tr>
+              </thead>
+              <tbody>${htmlRows}</tbody>
+            </table>
+          </div>
+        </div>
+    `;
+        }
+        async function loadDebtAP() {
+            const wrap = document.getElementById('debtContent');
+            const fmtDate = s => (s ? new Date(s).toLocaleDateString("vi-VN") : "");
+            const fmtMoney = n => (n || 0).toLocaleString("vi-VN", { style: "currency", currency: "VND" });
+            wrap.innerHTML = `<p class="muted">Đang tải công nợ phải trả...</p>`;
+
+            try {
+                const data = await api("getCongNoNcc", { chiConNo: false });
+                debtAPData = data || [];
+                renderDebtAPTable(debtAPData);
+            } catch (err) {
+                console.error(err);
+                wrap.innerHTML = `<p class="error">Lỗi khi tải công nợ phải trả.</p>`;
+            }
+        }
+        function renderDebtAPTable(rows) {
+            const wrap = document.getElementById('debtContent');
+            const fmtDate = s => (s ? new Date(s).toLocaleDateString("vi-VN") : "");
+            const fmtMoney = n => (n || 0).toLocaleString("vi-VN", { style: "currency", currency: "VND" });
+
+            if (!rows || rows.length === 0) {
+                wrap.innerHTML = `<p class="muted">Không có dữ liệu công nợ phải trả.</p>`;
+                return;
+            }
+
+            const htmlRows = rows.map((r, i) => `
+        <tr>
+          <td>${i + 1}</td>
+          <td>${r.tenNhaCungCap ?? r.TenNhaCungCap}</td>
+          <td style="text-align:right">${fmtMoney(r.tongPhaiTra ?? r.TongPhaiTra)}</td>
+          <td style="text-align:right">${fmtMoney(r.daThanhToan ?? r.DaThanhToan)}</td>
+          <td style="text-align:right">${fmtMoney(r.conNo ?? r.ConNo)}</td>
+        </tr>
+    `).join("");
+
+            wrap.innerHTML = `
+        <div class="card">
+          <header class="card-title">Phải trả nhà cung cấp (tổng hợp theo nhà cung cấp)</header>
+          <div class="table-wrap">
+            <table class="table">
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Nhà cung cấp</th>
+                  <th>Tổng phải trả</th>
+                  <th>Đã trả</th>
+                  <th>Còn lại</th>
+                </tr>
+              </thead>
+              <tbody>${htmlRows}</tbody>
+            </table>
+          </div>
+        </div>
+    `;
+        }
+
+        const fmtDate = s => (s ? new Date(s).toLocaleDateString("vi-VN") : "");
+        const fmtMoney = n => (n || 0).toLocaleString("vi-VN", { style: "currency", currency: "VND" });
+
+
+        async function renderCash() {
             app.innerHTML = `
-              <div class="page-header">
-                <div>
-                  <h2>💵 Tiền mặt (Quỹ)</h2>
-                  <p class="muted">Thu – chi, sổ quỹ, kiểm kê quỹ</p>
-                </div>
-                <div class="actions">
-                  <div class="btn-group">
-                    <button class="btn" data-cash="receipt">+ Phiếu thu</button>
-                    <button class="btn" data-cash="payment">- Phiếu chi</button>
-                    <button class="btn" data-cash="count">🧮 Kiểm kê quỹ</button>
-                  </div>
-                </div>
-              </div>
+      <div class="page-header">
+        <div>
+          <h2>💵 Tiền mặt (Quỹ)</h2>
+          <p class="muted">Thu – chi, sổ quỹ, kiểm kê quỹ</p>
+        </div>
+        <div class="actions">
+          <div class="btn-group">
+            <button class="btn" data-cash="receipt">+ Phiếu thu</button>
+            <button class="btn" data-cash="payment">- Phiếu chi</button>
+            <button class="btn" data-cash="count">🧮 Kiểm kê quỹ</button>
+          </div>
+        </div>
+      </div>
 
-              <div class="toolbar">
-                <input class="input" placeholder="Tìm chứng từ / người nộp / người nhận..." />
-                <select class="input">
-                  <option>Tháng này</option><option>Quý này</option><option>Năm nay</option>
-                </select>
-                <div class="spacer"></div>
-                <button class="btn">Xuất Excel</button>
-                <button class="btn">In</button>
-              </div>
+      <div class="toolbar">
+        <input id="cashSearch" class="input" placeholder="Tìm chứng từ / người nộp / người nhận..." />
+        <select id="cashRange" class="input">
+          <option value="month">Tháng này</option>
+          <option value="quarter">Quý này</option>
+          <option value="year">Năm nay</option>
+          <option value="all">Tất cả</option>
+        </select>
+        <div class="spacer"></div>
+        <button class="btn" id="cashExport">Xuất Excel</button>
+        <button class="btn" id="cashPrint">In</button>
+      </div>
 
-              <div class="grid two-col">
-                <div class="card">
-                  <header class="card-title">📘 Sổ quỹ (gần đây)</header>
-                  <div class="table-wrap">
-                    <table class="table">
-                      <thead><tr><th>Ngày</th><th>Số CT</th><th>Diễn giải</th><th>Thu</th><th>Chi</th><th>Số dư</th></tr></thead>
-                      <tbody>
-                        <tr><td>12/10/2025</td><td>PT-0021</td><td>Thu công nợ SO-1002</td><td>₫ 10,000,000</td><td></td><td>₫ 215,000,000</td></tr>
-                        <tr><td>11/10/2025</td><td>PC-0145</td><td>Chi tạm ứng SX</td><td></td><td>₫ 5,000,000</td><td>₫ 205,000,000</td></tr>
-                        <tr><td colspan="6" class="empty">…</td></tr>
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
+      <div class="grid two-col">
+        <div class="card">
+          <header class="card-title">📘 Sổ quỹ (gần đây)</header>
+          <div class="table-wrap">
+            <table class="table">
+              <thead>
+                <tr>
+                  <th>Ngày</th>
+                  <th>Số CT</th>
+                  <th>Diễn giải</th>
+                  <th>Thu</th>
+                  <th>Chi</th>
+                  <th>Số dư</th>
+                </tr>
+              </thead>
+              <tbody id="cashLedgerBody">
+                <tr><td colspan="6" class="empty">Đang tải dữ liệu…</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
 
-                <div class="card">
-                  <header class="card-title">🧾 Phiếu thu/chi gần đây</header>
-                  <div class="table-wrap">
-                    <table class="table">
-                      <thead><tr><th>Loại</th><th>Số CT</th><th>Ngày</th><th>Số tiền</th><th>Đối tượng</th><th></th></tr></thead>
-                      <tbody>
-                        <tr><td>Thu</td><td>PT-0021</td><td>12/10/2025</td><td>₫ 10,000,000</td><td>Minh Quân</td><td><button class="btn link">Xem</button></td></tr>
-                        <tr><td>Chi</td><td>PC-0145</td><td>11/10/2025</td><td>₫ 5,000,000</td><td>Tạm ứng SX</td><td><button class="btn link">Xem</button></td></tr>
-                        <tr><td colspan="6" class="empty">…</td></tr>
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              </div>
-            `;
+        <div class="card">
+          <header class="card-title">🧾 Phiếu thu/chi gần đây</header>
+          <div class="table-wrap">
+            <table class="table">
+              <thead>
+                <tr>
+                  <th>Loại</th>
+                  <th>Số CT</th>
+                  <th>Ngày</th>
+                  <th>Số tiền</th>
+                  <th>Đối tượng</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="cashDocsBody">
+                <tr><td colspan="6" class="empty">Đang tải dữ liệu…</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    `;
 
+            // bắt sự kiện chuyển sang form phiếu
             document.querySelectorAll('[data-cash]').forEach(b => {
                 b.addEventListener('click', () => renderCashDoc(b.dataset.cash));
             });
-        }
 
-        /* Form phiếu Thu/Chi/ Kiểm kê — UI tĩnh */
-        function renderCashDoc(type) {
-            const title = type === 'receipt' ? '➕ Phiếu thu'
-                : type === 'payment' ? '➖ Phiếu chi'
-                    : '🧮 Kiểm kê quỹ';
-            app.innerHTML = `
-              <div class="page-header">
-                <div><h2>${title}</h2><p class="muted">UI tĩnh mô phỏng chứng từ quỹ</p></div>
-                <div class="actions"><button class="btn" id="backCash">← Quay lại</button></div>
-              </div>
+            // tạm thời range "tháng này"
+            const now = new Date();
+            const tuNgay = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+            const denNgay = now.toISOString();
 
-              <div class="card">
-                <form class="form">
-                  <div class="grid form-grid">
-                    <label class="field"><span>Số chứng từ</span><input class="input" placeholder="${type === 'receipt' ? 'PT-' : 'PC-'}0001" /></label>
-                    <label class="field"><span>Ngày</span><input type="date" class="input" /></label>
-                    <label class="field"><span>${type === 'receipt' ? 'Người nộp' : 'Người nhận'}</span><input class="input" placeholder="Tên người/đơn vị" /></label>
-                    <label class="field"><span>Số tiền</span><input type="number" class="input" placeholder="0" /></label>
-                    ${type !== 'count' ? `
-                    <label class="field"><span>Lý do</span><input class="input" placeholder="Thu công nợ/ Chi tạm ứng..." /></label>`: ''}
-                    ${type === 'count' ? `
-                    <label class="field"><span>Số dư sổ</span><input class="input" value="₫ 205,000,000" disabled /></label>
-                    <label class="field"><span>Thực tế kiểm đếm</span><input class="input" placeholder="₫ 0" /></label>`: ''}
-                  </div>
+            // gọi API song song
+            // gọi API lần lượt
+            let soQuy = [];
+            let phieuThu = [];
+            let phieuChi = [];
+            try {
+                soQuy = await api("cash.listSoQuy", { tuNgay, denNgay });
+                phieuThu = await api("cash.listPhieuThu", { tuNgay, denNgay });
+                phieuChi = await api("cash.listPhieuChi", { tuNgay, denNgay });
+            } catch (err) {
+                console.error(err);
+                const body = document.getElementById("cashLedgerBody");
+                if (body) body.innerHTML = `<tr><td colspan="6" class="empty">Lỗi tải dữ liệu quỹ</td></tr>`;
+                document.getElementById("cashDocsBody").innerHTML =
+                    `<tr><td colspan="6" class="empty">Lỗi tải danh sách chứng từ</td></tr>`;
+                return;
+            }
 
-                  <div class="form-actions">
-                    <button type="button" class="btn">Lưu nháp</button>
-                    <button type="button" class="btn">In</button>
-                    <button type="button" class="btn primary" disabled>Ghi sổ</button>
-                  </div>
-                </form>
-              </div>
+
+            // ===== render Sổ quỹ =====
+            const ledgerBody = document.getElementById("cashLedgerBody");
+            ledgerBody.innerHTML = "";
+            let soDu = 0;
+            if (!soQuy || soQuy.length === 0) {
+                ledgerBody.innerHTML = `<tr><td colspan="6" class="empty">Chưa có phát sinh nào</td></tr>`;
+            } else {
+                soQuy.forEach(item => {
+                    soDu += (item.thu || 0) - (item.chi || 0);
+                    const tr = document.createElement("tr");
+                    tr.innerHTML = `
+              <td>${new Date(item.ngayCt).toLocaleDateString("vi-VN")}</td>
+              <td>${item.soCt}</td>
+              <td>${item.noiDung || ""}</td>
+              <td>${item.thu ? formatVnd(item.thu) : ""}</td>
+              <td>${item.chi ? formatVnd(item.chi) : ""}</td>
+              <td>${formatVnd(soDu)}</td>
             `;
-            document.getElementById('backCash').addEventListener('click', renderCash);
-        }
+                    ledgerBody.appendChild(tr);
+                });
+            }
 
-        /* ====== NGÂN HÀNG ====== */
-        function renderBank() {
-            app.innerHTML = `
-              <div class="page-header">
-                <div>
-                  <h2>🏦 Ngân hàng</h2>
-                  <p class="muted">Thu – chi qua NH, sổ phụ, đối chiếu</p>
-                </div>
-                <div class="actions">
-                  <div class="btn-group">
-                    <button class="btn" data-bank="receipt">+ UNC Thu</button>
-                    <button class="btn" data-bank="payment">- UNC Chi</button>
-                    <button class="btn" data-bank="reconcile">🔁 Đối chiếu sổ phụ</button>
-                  </div>
-                </div>
-              </div>
+            // ===== render Phiếu thu/chi gần đây =====
+            const docsBody = document.getElementById("cashDocsBody");
+            docsBody.innerHTML = "";
 
-              <div class="toolbar">
-                <input class="input" placeholder="Tìm theo số CT / tài khoản / diễn giải..." />
-                <select class="input">
-                  <option>TK 1121 – VND</option><option>TK 1122 – USD</option>
-                </select>
-                <select class="input">
-                  <option>Tháng này</option><option>Quý này</option><option>Năm nay</option>
-                </select>
-                <div class="spacer"></div>
-                <button class="btn">Xuất Excel</button>
-              </div>
+            const rows = [];
 
-              <div class="grid two-col">
-                <div class="card">
-                  <header class="card-title">🧾 Chứng từ ngân hàng</header>
-                  <div class="table-wrap">
-                    <table class="table">
-                      <thead><tr><th>Loại</th><th>Số CT</th><th>Ngày</th><th>Số tiền</th><th>Tài khoản</th><th>Đối tượng</th><th></th></tr></thead>
-                      <tbody>
-                        <tr><td>Thu</td><td>UNC-THU-009</td><td>12/10/2025</td><td>₫ 210,000,000</td><td>1121</td><td>Minh Quân</td><td><button class="btn link">Xem</button></td></tr>
-                        <tr><td>Chi</td><td>UNC-CHI-077</td><td>11/10/2025</td><td>₫ 95,000,000</td><td>1121</td><td>Giấy Hòa Việt</td><td><button class="btn link">Xem</button></td></tr>
-                        <tr><td colspan="7" class="empty">…</td></tr>
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
+            (phieuThu || []).forEach(p => {
+                rows.push({
+                    type: "Thu",
+                    soCt: p.soCt,
+                    ngayCt: p.ngayCt,
+                    soTien: p.soTien,
+                    doiTuong: p.nguoiNop,
+                    raw: p,
+                    kind: "receipt"
+                });
+            });
 
-                <div class="card">
-                  <header class="card-title">📑 Đối chiếu sổ phụ</header>
-                  <div class="table-wrap">
-                    <table class="table">
-                      <thead><tr><th>Ngày</th><th>Mô tả</th><th>Số tiền (NH)</th><th>Đã hạch toán</th><th>Chênh lệch</th></tr></thead>
-                      <tbody>
-                        <tr><td>12/10</td><td>Tiền về bán hàng SO-1002</td><td>₫ 210,000,000</td><td>₫ 210,000,000</td><td>₫ 0</td></tr>
-                        <tr><td>11/10</td><td>Thanh toán NCC Hòa Việt</td><td>₫ 95,000,000</td><td>₫ 80,000,000</td><td>₫ 15,000,000</td></tr>
-                        <tr><td colspan="5" class="empty">…</td></tr>
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              </div>
+            (phieuChi || []).forEach(p => {
+                rows.push({
+                    type: "Chi",
+                    soCt: p.soCt,
+                    ngayCt: p.ngayCt,
+                    soTien: p.soTien,
+                    doiTuong: p.nguoiNhan,
+                    raw: p,
+                    kind: "payment"
+                });
+            });
+
+            rows.sort((a, b) => new Date(b.ngayCt) - new Date(a.ngayCt)); // mới nhất trước
+
+            if (rows.length === 0) {
+                docsBody.innerHTML = `<tr><td colspan="6" class="empty">Chưa có phiếu thu/chi</td></tr>`;
+            } else {
+                rows.slice(0, 20).forEach(r => {
+                    const tr = document.createElement("tr");
+                    tr.innerHTML = `
+              <td>${r.type}</td>
+              <td>${r.soCt}</td>
+              <td>${new Date(r.ngayCt).toLocaleDateString("vi-VN")}</td>
+              <td>${formatVnd(r.soTien)}</td>
+              <td>${r.doiTuong || ""}</td>
+              <td><button class="btn link" data-view-doc='${JSON.stringify({ kind: r.kind, id: r.raw.id })}'>Xem</button></td>
             `;
+                    docsBody.appendChild(tr);
+                });
 
-            document.querySelectorAll('[data-bank]').forEach(b => {
-                b.addEventListener('click', () => renderBankDoc(b.dataset.bank));
+                docsBody.querySelectorAll("[data-view-doc]").forEach(btn => {
+                    btn.addEventListener("click", () => {
+                        const { kind, id } = JSON.parse(btn.dataset.viewDoc);
+                        // mở form với id (edit mode)
+                        renderCashDoc(kind, id);
+                    });
+                });
+            }
+        }
+        /* Form phiếu Thu/Chi/ Kiểm kê — với ghi sổ thật */
+        async function renderCashDoc(type, id) {
+            const isReceipt = type === "receipt";
+            const isPayment = type === "payment";
+            const isCount = type === "count";
+
+            const title = isReceipt ? "➕ Phiếu thu"
+                : isPayment ? "➖ Phiếu chi"
+                    : "🧮 Kiểm kê quỹ";
+
+            // nếu là sửa phiếu thu/chi thì load dữ liệu
+            let existing = null;
+            if (id && (isReceipt || isPayment)) {
+                try {
+                    existing = isReceipt
+                        ? await api("cash.getPhieuThu", { id })
+                        : await api("cash.getPhieuChi", { id });
+                } catch (e) {
+                    console.error(e);
+                    alert("Không tải được dữ liệu chứng từ.");
+                }
+            }
+
+            const soCtPlaceholder = isReceipt ? "PT-0001" : isPayment ? "PC-0001" : "";
+
+            app.innerHTML = `
+      <div class="page-header">
+        <div>
+          <h2>${title}</h2>
+          <p class="muted">${isCount ? "Ghi nhận kết quả kiểm kê quỹ" : "Chứng từ thu/chi quỹ tiền mặt"}</p>
+        </div>
+        <div class="actions"><button class="btn" id="backCash">← Quay lại</button></div>
+      </div>
+
+      <div class="card">
+        <form class="form" id="cashForm" autocomplete="off">
+          <div class="grid form-grid">
+            ${isCount ? `
+              <label class="field">
+                <span>Ngày kiểm kê</span>
+                <input name="ngayKk" type="date" class="input" />
+              </label>
+              <label class="field">
+                <span>Số dư sổ</span>
+                <input name="soDuSo" class="input" type="number" readonly />
+              </label>
+              <label class="field">
+                <span>Thực tế kiểm đếm</span>
+                <input name="thucTe" class="input" type="number" placeholder="0" />
+              </label>
+              <label class="field">
+                <span>Chênh lệch</span>
+                <input name="chenhLech" class="input" type="number" readonly />
+              </label>
+              <label class="field">
+                <span>Ghi chú</span>
+                <input name="ghiChu" class="input" placeholder="Lý do thừa / thiếu quỹ..." />
+              </label>
+            ` : `
+              <label class="field">
+                <span>Số chứng từ</span>
+                <input name="soCt" class="input" placeholder="${soCtPlaceholder}" />
+              </label>
+              <label class="field">
+                <span>Ngày</span>
+                <input name="ngayCt" type="date" class="input" />
+              </label>
+              <label class="field">
+                <span>Hóa đơn</span>
+                <select name="hoaDonId" class="input">
+                  <option value="">-- Chọn hóa đơn --</option>
+                </select>
+              </label>
+              <label class="field">
+                <span>${isReceipt ? "Người nộp" : "Người nhận"}</span>
+                <input name="doiTuong" class="input" placeholder="Tên người/đơn vị" />
+              </label>
+              <label class="field">
+                <span>Số tiền</span>
+                <input name="soTien" type="number" class="input" min="0" step="1000" placeholder="0" />
+              </label>
+              <label class="field">
+                <span>Lý do</span>
+                <input name="lyDo" class="input" placeholder="${isReceipt ? "Thu công nợ / Thu khác..." : "Chi tạm ứng / Chi khác..."}" />
+              </label>
+            `}
+          </div>
+
+          <div class="form-actions">
+            <button type="button" class="btn" id="cashPrintBtn">In</button>
+            ${isCount
+                    ? `<button type="submit" class="btn primary" id="cashSubmitBtn">Ghi kiểm kê</button>`
+                    : `<button type="submit" class="btn primary" id="cashSubmitBtn">Ghi sổ</button>`}
+          </div>
+        </form>
+      </div>
+    `;
+
+            const form = document.getElementById("cashForm");
+
+            // nút quay lại
+            document.getElementById("backCash").addEventListener("click", () => {
+                renderCash();
+            });
+
+            // ================== KIỂM KÊ QUỸ ==================
+            if (isCount) {
+                // set ngày mặc định
+                form.elements["ngayKk"].value = new Date().toISOString().substring(0, 10);
+
+                // load số dư sổ hiện tại
+                try {
+                    const todayIso = new Date().toISOString();
+                    const res = await api("cash.getSoDuQuy", { denNgay: todayIso });
+                    const soDu = res?.soDu ?? res ?? 0;
+                    form.elements["soDuSo"].value = soDu;
+                    form.elements["chenhLech"].value = 0;
+                } catch (err) {
+                    console.error(err);
+                    alert("Không lấy được số dư quỹ.");
+                }
+
+                // tự tính chênh lệch khi nhập thực tế
+                form.elements["thucTe"].addEventListener("input", () => {
+                    const soDuSo = Number(form.elements["soDuSo"].value || 0);
+                    const thucTe = Number(form.elements["thucTe"].value || 0);
+                    form.elements["chenhLech"].value = thucTe - soDuSo;
+                });
+
+                // submit kiểm kê
+                form.addEventListener("submit", async (ev) => {
+                    ev.preventDefault();
+
+                    const ngayKk = form.elements["ngayKk"].value;
+                    const soDuSo = Number(form.elements["soDuSo"].value || 0);
+                    const soDuThucTe = Number(form.elements["thucTe"].value || 0);
+                    const chenhLech = Number(form.elements["chenhLech"].value || 0);
+                    const ghiChu = form.elements["ghiChu"].value.trim();
+
+                    if (!ngayKk) {
+                        alert("Vui lòng chọn ngày kiểm kê.");
+                        return;
+                    }
+
+                    const dto = {
+                        id: 0,
+                        ngayKk,
+                        soDuSo,
+                        soDuThucTe,
+                        chenhLech,
+                        ghiChu: ghiChu || null
+                    };
+
+                    try {
+                        await api("cash.saveKiemKeQuy", dto);
+                        alert("Đã ghi kiểm kê quỹ.");
+                        renderCash();
+                    } catch (err) {
+                        console.error(err);
+                        alert(err.message || "Ghi kiểm kê thất bại.");
+                    }
+                });
+
+                document.getElementById("cashPrintBtn").addEventListener("click", () => {
+                    alert("Chức năng in phiếu sẽ làm sau.");
+                });
+
+                // rất quan trọng: return để không chạy logic phiếu thu/chi phía dưới
+                return;
+            }
+
+            // ================== PHIẾU THU / PHIẾU CHI ==================
+
+            // LOAD DANH SÁCH HÓA ĐƠN
+            if (isReceipt || isPayment) {
+                try {
+                    const sel = form.elements["hoaDonId"];
+                    let data = [];
+
+                    if (isReceipt) {
+                        // Hóa đơn BÁN còn nợ
+                        data = await api("sales.listHoaDonBanChuaThu", {});
+                    } else if (isPayment) {
+                        // Hóa đơn MUA còn nợ
+                        data = await api("purchases.listHoaDonMuaChuaTra", {});
+                    }
+
+                    if (sel && Array.isArray(data)) {
+                        fillSelect(
+                            sel,
+                            data.map(h => ({
+                                value: h.id,
+                                label: `${h.soHoaDon} - ${(h.tenKhachHang || h.tenNhaCungCap || "")} - ${formatVnd(h.conNo)}`
+                            })),
+                            existing
+                                ? (isReceipt ? existing.hoaDonBanId : existing.hoaDonMuaId)
+                                : null
+                        );
+                    }
+                } catch (e) {
+                    console.error(e);
+                }
+            }
+
+            // bind dữ liệu khi sửa
+            if (existing) {
+                form.elements["soCt"].value = existing.soCt || "";
+                form.elements["ngayCt"].value = existing.ngayCt
+                    ? new Date(existing.ngayCt).toISOString().substring(0, 10)
+                    : "";
+                form.elements["doiTuong"].value = isReceipt ? (existing.nguoiNop || "") : (existing.nguoiNhan || "");
+                form.elements["soTien"].value = existing.soTien || 0;
+                form.elements["lyDo"].value = existing.lyDo || "";
+                form.dataset.id = existing.id;
+            } else {
+                // default ngày hôm nay
+                form.elements["ngayCt"].value = new Date().toISOString().substring(0, 10);
+            }
+
+            // submit phiếu thu / chi
+            form.addEventListener("submit", async (ev) => {
+                ev.preventDefault();
+
+                const soCt = form.elements["soCt"].value.trim();
+                const ngayCt = form.elements["ngayCt"].value;
+                const doiTuong = form.elements["doiTuong"].value.trim();
+                const soTien = Number(form.elements["soTien"].value || 0);
+                const lyDo = form.elements["lyDo"].value.trim();
+                const hoaDonIdRaw = form.elements["hoaDonId"]?.value || "";
+                const hoaDonId = hoaDonIdRaw ? Number(hoaDonIdRaw) : null;
+
+                if (!ngayCt) {
+                    alert("Vui lòng chọn ngày chứng từ.");
+                    return;
+                }
+                if (!doiTuong) {
+                    alert(`Vui lòng nhập ${isReceipt ? "người nộp" : "người nhận"}.`);
+                    return;
+                }
+                if (soTien <= 0) {
+                    alert("Số tiền phải lớn hơn 0.");
+                    return;
+                }
+
+                const dto = {
+                    id: existing?.id || 0,
+                    soCt: soCt || null,
+                    ngayCt,
+                    soTien,
+                    lyDo: lyDo || null
+                };
+
+                if (isReceipt) {
+                    dto.nguoiNop = doiTuong;
+                    dto.hoaDonBanId = hoaDonId;
+                } else {
+                    dto.nguoiNhan = doiTuong;
+                    dto.hoaDonMuaId = hoaDonId;
+                }
+
+                try {
+                    const cmd = isReceipt ? "cash.savePhieuThu" : "cash.savePhieuChi";
+                    const res = await api(cmd, dto);
+                    alert("Đã ghi sổ: " + (res.soCt || dto.soCt || ""));
+                    renderCash();
+                } catch (err) {
+                    console.error(err);
+                    alert(err.message || "Ghi sổ thất bại.");
+                }
+            });
+
+            document.getElementById("cashPrintBtn").addEventListener("click", () => {
+                alert("Chức năng in phiếu sẽ làm sau.");
             });
         }
 
-        /* Form UNC Thu/Chi & Đối chiếu — UI tĩnh */
-        function renderBankDoc(type) {
-            const title = type === 'receipt' ? '➕ UNC Thu'
-                : type === 'payment' ? '➖ UNC Chi'
-                    : '🔁 Đối chiếu sổ phụ';
-            app.innerHTML = `
-              <div class="page-header">
-                <div><h2>${title}</h2><p class="muted">UI tĩnh mô phỏng chứng từ ngân hàng</p></div>
-                <div class="actions"><button class="btn" id="backBank">← Quay lại</button></div>
-              </div>
 
-              <div class="card">
-                <form class="form">
-                  <div class="grid form-grid">
-                    ${type !== 'reconcile' ? `
-                    <label class="field"><span>Số chứng từ</span><input class="input" placeholder="${type === 'receipt' ? 'UNC-THU-' : 'UNC-CHI-'}0001" /></label>
-                    <label class="field"><span>Ngày</span><input type="date" class="input" /></label>
-                    <label class="field"><span>Tài khoản ngân hàng</span>
-                      <select class="input"><option>1121 – VND</option><option>1122 – USD</option></select>
-                    </label>
-                    <label class="field"><span>Số tiền</span><input type="number" class="input" placeholder="0" /></label>
-                    <label class="field"><span>Đối tượng</span><input class="input" placeholder="Khách hàng / NCC" /></label>
-                    <label class="field"><span>Nội dung</span><input class="input" placeholder="Thanh toán, thu nợ..." /></label>
-                    ` : `
-                    <label class="field"><span>Kỳ đối chiếu</span>
-                      <select class="input"><option>Tháng này</option><option>Tháng trước</option></select>
-                    </label>
-                    <label class="field"><span>Tài khoản</span>
-                      <select class="input"><option>1121 – VND</option><option>1122 – USD</option></select>
-                    </label>
-                    `}
-                  </div>
 
-                  ${type === 'reconcile' ? `
-                  <div class="subsection">
-                    <div class="subheader"><h3>Kết quả đối chiếu</h3></div>
-                    <div class="table-wrap">
-                      <table class="table compact">
-                        <thead><tr><th>Ngày</th><th>Mô tả</th><th>Sổ phụ NH</th><th>Hạch toán</th><th>Chênh lệch</th></tr></thead>
-                        <tbody>
-                          <tr><td>11/10</td><td>Thanh toán NCC Hòa Việt</td><td>₫ 95,000,000</td><td>₫ 80,000,000</td><td>₫ 15,000,000</td></tr>
-                          <tr><td colspan="5" class="empty">…</td></tr>
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>` : ''}
+        /**
+ * Điền danh sách <option> vào thẻ <select>
+ * @param {HTMLSelectElement} select - phần tử <select>
+ * @param {Array} items - mảng dữ liệu [{ value, label }]
+ * @param {string|number|null} selectedValue - giá trị cần chọn sẵn (nếu có)
+ */
+        function fillSelect(select, items, selectedValue = null) {
+            if (!select) return;
 
-                  <div class="form-actions">
-                    <button type="button" class="btn">Lưu</button>
-                    <button type="button" class="btn">In</button>
-                    <button type="button" class="btn primary" disabled>Ghi sổ</button>
-                  </div>
-                </form>
-              </div>
-            `;
-            document.getElementById('backBank').addEventListener('click', renderBank);
+            // Xóa tất cả option cũ
+            select.innerHTML = "";
+
+            // Thêm option mặc định
+            const defaultOpt = document.createElement("option");
+            defaultOpt.value = "";
+            defaultOpt.textContent = "-- Chọn hóa đơn --";
+            select.appendChild(defaultOpt);
+
+            // Thêm các option từ danh sách
+            for (const item of items) {
+                const opt = document.createElement("option");
+                opt.value = item.value ?? "";
+                opt.textContent = item.label ?? "";
+                if (selectedValue !== null && String(selectedValue) === String(item.value)) {
+                    opt.selected = true;
+                }
+                select.appendChild(opt);
+            }
         }
+
+        /**
+ * Định dạng số tiền thành chuỗi tiền tệ Việt Nam (₫)
+ * @param {number} value - Số tiền (có thể là null, undefined)
+ * @returns {string} Chuỗi hiển thị, ví dụ "₫ 1.200.000"
+ */
+        function formatVnd(value) {
+            if (value == null || isNaN(value)) return "₫ 0";
+            return "₫ " + Number(value).toLocaleString("vi-VN");
+        }
+
+
+        /* ====== NGÂN HÀNG ====== */
+        /* ====== NGÂN HÀNG ====== */
+
+        let bankState = {
+            taiKhoanId: null,
+            period: "month",      // "month" | "quarter" | "year"
+            keyword: "",
+            taiKhoanList: [],
+        };
+
+        function bankPeriodToRange(period) {
+            const now = new Date();
+            let from, to = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+            if (period === "month") {
+                from = new Date(now.getFullYear(), now.getMonth(), 1);
+            } else if (period === "quarter") {
+                const q = Math.floor(now.getMonth() / 3); // 0,1,2,3
+                const startMonth = q * 3;
+                from = new Date(now.getFullYear(), startMonth, 1);
+            } else { // year
+                from = new Date(now.getFullYear(), 0, 1);
+            }
+            return {
+                tuNgay: from.toISOString(),
+                denNgay: to.toISOString()
+            };
+        }
+
+        function fmtMoneyVnd(n) {
+            return (Number(n) || 0).toLocaleString("vi-VN", {
+                style: "currency",
+                currency: "VND"
+            });
+        }
+
+        function fmtDateVN(s) {
+            if (!s) return "";
+            const d = new Date(s);
+            if (Number.isNaN(d.getTime())) return "";
+            return d.toLocaleDateString("vi-VN");
+        }
+
+        function findBankAccountById(id) {
+            return bankState.taiKhoanList.find(x => x.id === id) || null;
+        }
+
+        // =============== RENDER LIST ===============
+
+        async function renderBank() {
+            // 1. Load danh sách tài khoản ngân hàng (nếu chưa có)
+            if (!bankState.taiKhoanList || bankState.taiKhoanList.length === 0) {
+                try {
+                    // API giả định: trả [{ id, ma, tenNganHang, soTaiKhoan, tienTe }, ...]
+                    bankState.taiKhoanList = await api("catalog.listBankAccounts", {});
+                } catch (e) {
+                    console.error("Lỗi load tài khoản ngân hàng:", e);
+                    bankState.taiKhoanList = [];
+                }
+            }
+
+            // Nếu chưa chọn TK thì lấy TK đầu tiên
+            if (!bankState.taiKhoanId && bankState.taiKhoanList.length > 0) {
+                bankState.taiKhoanId = bankState.taiKhoanList[0].id;
+            }
+
+            const { tuNgay, denNgay } = bankPeriodToRange(bankState.period);
+            const taiKhoanId = bankState.taiKhoanId || 0;
+
+            let phieuThu = [];
+            let phieuChi = [];
+            let soKe = [];
+
+            try {
+                phieuThu = await api("bank.listPhieuThu", { taiKhoanId, tuNgay, denNgay });
+                phieuChi = await api("bank.listPhieuChi", { taiKhoanId, tuNgay, denNgay });
+                soKe = await api("bank.listSoKe", { taiKhoanId, tuNgay, denNgay });
+            } catch (e) {
+                console.error("Lỗi load dữ liệu ngân hàng:", e);
+            }
+
+            // Gộp Thu + Chi cho bảng "Chứng từ ngân hàng"
+            const docs = [
+                ...phieuThu.map(x => ({
+                    loai: "Thu",
+                    soCt: x.soCt,
+                    ngayCt: x.ngayCt,
+                    soTien: x.soTien,
+                    taiKhoanId: x.taiKhoanNganHangId,
+                    doiTuong: x.nguoiNop,
+                    id: x.id,
+                    kind: "receipt"
+                })),
+                ...phieuChi.map(x => ({
+                    loai: "Chi",
+                    soCt: x.soCt,
+                    ngayCt: x.ngayCt,
+                    soTien: x.soTien,
+                    taiKhoanId: x.taiKhoanNganHangId,
+                    doiTuong: x.nguoiNhan,
+                    id: x.id,
+                    kind: "payment"
+                }))
+            ].sort((a, b) => {
+                const da = new Date(a.ngayCt).getTime();
+                const db = new Date(b.ngayCt).getTime();
+                if (da !== db) return db - da; // mới nhất trước
+                return (a.soCt || "").localeCompare(b.soCt || "");
+            });
+
+            // Filter theo keyword (số CT, tài khoản, đối tượng)
+            let docsFiltered = docs;
+            if (bankState.keyword && bankState.keyword.trim() !== "") {
+                const kw = bankState.keyword.trim().toLowerCase();
+                docsFiltered = docs.filter(d => {
+                    const acc = findBankAccountById(d.taiKhoanId);
+                    const tkStr = acc ? (acc.ma + " " + (acc.tenNganHang || "")).toLowerCase() : "";
+                    return (d.soCt || "").toLowerCase().includes(kw)
+                        || (d.doiTuong || "").toLowerCase().includes(kw)
+                        || tkStr.includes(kw);
+                });
+            }
+
+            // Render HTML skeleton
+            app.innerHTML = `
+      <div class="page-header">
+        <div>
+          <h2>🏦 Ngân hàng</h2>
+          <p class="muted">Thu – chi qua NH, sổ phụ, đối chiếu</p>
+        </div>
+        <div class="actions">
+          <div class="btn-group">
+            <button class="btn" data-bank="receipt">+ UNC Thu</button>
+            <button class="btn" data-bank="payment">- UNC Chi</button>
+            <button class="btn" data-bank="reconcile">🔁 Đối chiếu sổ phụ</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="toolbar">
+        <input id="bankSearch" class="input" placeholder="Tìm theo số CT / tài khoản / diễn giải..." />
+        <select id="bankTk" class="input">
+          ${bankState.taiKhoanList.map(tk => `
+            <option value="${tk.id}" ${tk.id === bankState.taiKhoanId ? "selected" : ""}>
+              ${tk.ma} – ${tk.tenNganHang || tk.soTaiKhoan || ""}
+            </option>`).join("")}
+        </select>
+        <select id="bankPeriod" class="input">
+          <option value="month"   ${bankState.period === "month" ? "selected" : ""}>Tháng này</option>
+          <option value="quarter" ${bankState.period === "quarter" ? "selected" : ""}>Quý này</option>
+          <option value="year"    ${bankState.period === "year" ? "selected" : ""}>Năm nay</option>
+        </select>
+        <div class="spacer"></div>
+      </div>
+
+      <div class="grid two-col">
+        <div class="card">
+          <header class="card-title">🧾 Chứng từ ngân hàng</header>
+          <div class="table-wrap">
+            <table class="table">
+              <thead>
+                <tr>
+                  <th>Loại</th>
+                  <th>Số CT</th>
+                  <th>Ngày</th>
+                  <th>Số tiền</th>
+                  <th>Tài khoản</th>
+                  <th>Đối tượng</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="bankDocsBody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="card">
+          <header class="card-title">📑 Đối chiếu sổ phụ</header>
+          <div class="table-wrap">
+            <table class="table">
+              <thead>
+                <tr>
+                  <th>Ngày</th>
+                  <th>Mô tả</th>
+                  <th>Số tiền (NH)</th>
+                  <th>Đã hạch toán</th>
+                  <th>Chênh lệch</th>
+                </tr>
+              </thead>
+              <tbody id="bankReconBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    `;
+
+            // Gán giá trị search hiện tại
+            document.getElementById("bankSearch").value = bankState.keyword || "";
+
+            // Render nội dung bảng chứng từ
+            const tbodyDocs = document.getElementById("bankDocsBody");
+            if (!docsFiltered.length) {
+                tbodyDocs.innerHTML = `<tr><td colspan="7" class="empty">Chưa có chứng từ ngân hàng trong kỳ.</td></tr>`;
+            } else {
+                tbodyDocs.innerHTML = docsFiltered.map(d => {
+                    const acc = findBankAccountById(d.taiKhoanId);
+                    const tkStr = acc ? acc.ma : (d.taiKhoanId || "");
+                    return `
+              <tr>
+                <td>${d.loai}</td>
+                <td>${d.soCt || ""}</td>
+                <td>${fmtDateVN(d.ngayCt)}</td>
+                <td>${fmtMoneyVnd(d.soTien)}</td>
+                <td>${tkStr}</td>
+                <td>${d.doiTuong || ""}</td>
+                <td><button class="btn link" data-bank-view="${d.kind}" data-id="${d.id}"></button></td>
+              </tr>`;
+                }).join("");
+            }
+
+            // Render bảng đối chiếu (soKe lấy từ view_so_phu_ngan_hang hoặc BankService.GetSoNganHangAsync)
+            const tbodyRecon = document.getElementById("bankReconBody");
+            if (!soKe || !soKe.length) {
+                tbodyRecon.innerHTML = `<tr><td colspan="5" class="empty">Chưa có dữ liệu sổ phụ ngân hàng.</td></tr>`;
+            } else {
+                // soKe Item: { ngayCt, soCt, loaiPhieu, noiDung, thu, chi }
+                tbodyRecon.innerHTML = soKe.map(r => {
+                    const nh = r.thu > 0 ? r.thu : r.chi;
+                    const daHachToan = nh; // tạm coi bằng nhau, nếu sau này bạn có trường riêng thì sửa lại
+                    const chenhLech = 0;   // Placeholder – có thể tính từ dữ liệu khác
+                    return `
+              <tr>
+                <td>${fmtDateVN(r.ngayCt)}</td>
+                <td>${r.noiDung || r.loaiPhieu || ""}</td>
+                <td>${fmtMoneyVnd(nh)}</td>
+                <td>${fmtMoneyVnd(daHachToan)}</td>
+                <td>${fmtMoneyVnd(chenhLech)}</td>
+              </tr>`;
+                }).join("");
+            }
+
+            // Event: nút + UNC Thu / - UNC Chi / Đối chiếu
+            document.querySelectorAll('[data-bank]').forEach(b => {
+                b.addEventListener('click', () => {
+                    const t = b.dataset.bank;
+                    renderBankDoc(t);
+                });
+            });
+
+            // Event: Xem chứng từ (mở form sửa)
+            document.querySelectorAll("[data-bank-view]").forEach(btn => {
+                btn.addEventListener("click", () => {
+                    const kind = btn.getAttribute("data-bank-view");
+                    const id = Number(btn.getAttribute("data-id"));
+                    renderBankDoc(kind, id);
+                });
+            });
+
+            // Event: filter TK
+            document.getElementById("bankTk").addEventListener("change", (e) => {
+                bankState.taiKhoanId = Number(e.target.value) || null;
+                renderBank();
+            });
+
+            // Event: filter kỳ
+            document.getElementById("bankPeriod").addEventListener("change", (e) => {
+                bankState.period = e.target.value || "month";
+                renderBank();
+            });
+
+            // Event: search
+            document.getElementById("bankSearch").addEventListener("input", (e) => {
+                bankState.keyword = e.target.value || "";
+                // không cần gọi API lại, chỉ filter client
+                renderBank();
+            });
+        }
+
+        // =============== FORM UNC / ĐỐI CHIẾU ===============
+
+        async function renderBankDoc(type, id) {
+            const isReconcile = (type === "reconcile");
+            const isReceipt = (type === "receipt");
+            const isPayment = (type === "payment");
+            let selectedInvoice = null; 
+
+            const title = isReceipt
+                ? "➕ UNC Thu"
+                : isPayment
+                    ? "➖ UNC Chi"
+                    : "🔁 Đối chiếu sổ phụ";
+
+            // Load TK ngân hàng để fill combo
+            if (!bankState.taiKhoanList || bankState.taiKhoanList.length === 0) {
+                try {
+                    bankState.taiKhoanList = await api("catalog.listBankAccounts", {});
+                } catch (e) {
+                    bankState.taiKhoanList = [];
+                }
+            }
+
+            let data = null;
+            if (!isReconcile && id) {
+                try {
+                    if (isReceipt) {
+                        data = await api("bank.getPhieuThu", { id });
+                    } else if (isPayment) {
+                        data = await api("bank.getPhieuChi", { id });
+                    }
+                } catch (e) {
+                    console.error("Lỗi load chứng từ ngân hàng:", e);
+                }
+            }
+
+            // Default values nếu thêm mới
+            const todayStr = new Date().toISOString().slice(0, 10);
+            const soCtPlaceholder = isReceipt ? "UNC-THU-0001" : "UNC-CHI-0001";
+
+            const soCtVal = data?.soCt || "";
+            const ngayVal = data?.ngayCt ? new Date(data.ngayCt).toISOString().slice(0, 10) : todayStr;
+            const tkIdVal = data?.taiKhoanNganHangId || bankState.taiKhoanId || (bankState.taiKhoanList[0]?.id || "");
+            const soTienVal = data?.soTien || "";
+            const doiTuongVal = isReceipt ? (data?.nguoiNop || "") : isPayment ? (data?.nguoiNhan || "") : "";
+            const noiDungVal = data?.lyDo || "";
+
+            app.innerHTML = `
+      <div class="page-header">
+        <div>
+          <h2>${title}</h2>
+          <p class="muted">${isReconcile ? "Đối chiếu sổ phụ ngân hàng" : "Lập chứng từ ngân hàng"}</p>
+        </div>
+        <div class="actions">
+          <button class="btn" id="backBank">← Quay lại</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <form class="form" id="bankForm">
+          <div class="grid form-grid">
+            ${!isReconcile ? `
+            <label class="field">
+              <span>Số chứng từ</span>
+              <input id="bankSoCt" class="input" placeholder="${soCtPlaceholder}" value="${soCtVal}" />
+            </label>
+            <label class="field">
+              <span>Ngày</span>
+              <input id="bankNgay" type="date" class="input" value="${ngayVal}" />
+            </label>
+            <label class="field">
+              <span>Hóa đơn liên quan</span>
+              <select id="bankHoaDonSelect" class="input">
+                <option value="">-- Chọn hóa đơn --</option>
+              </select>
+            </label>
+
+
+            <label class="field">
+
+              <span>Tài khoản ngân hàng</span>
+              <select id="bankTkSelect" class="input">
+                ${bankState.taiKhoanList.map(tk => `
+                  <option value="${tk.id}" ${tk.id === tkIdVal ? "selected" : ""}>
+                    ${tk.ma} – ${tk.tenNganHang || tk.soTaiKhoan || ""}
+                  </option>`).join("")}
+              </select>
+            </label>
+            <label class="field">
+              <span>Số tiền</span>
+              <input id="bankSoTien" type="number" class="input" placeholder="0" value="${soTienVal}" />
+            </label>
+            <label class="field">
+              <span>Đối tượng</span>
+              <input id="bankDoiTuong" class="input" placeholder="Khách hàng / NCC" value="${doiTuongVal}" />
+            </label>
+            <label class="field">
+              <span>Nội dung</span>
+              <input id="bankNoiDung" class="input" placeholder="Thanh toán, thu nợ..." value="${noiDungVal}" />
+            </label>
+            ` : `
+            <label class="field">
+              <span>Kỳ đối chiếu</span>
+              <select id="bankReconPeriod" class="input">
+                <option value="month">Tháng này</option>
+                <option value="quarter">Quý này</option>
+                <option value="year">Năm nay</option>
+              </select>
+            </label>
+            <label class="field">
+              <span>Tài khoản</span>
+              <select id="bankReconTk" class="input">
+                ${bankState.taiKhoanList.map(tk => `
+                  <option value="${tk.id}" ${tk.id === bankState.taiKhoanId ? "selected" : ""}>
+                    ${tk.ma} – ${tk.tenNganHang || tk.soTaiKhoan || ""}
+                  </option>`).join("")}
+              </select>
+            </label>
+            `}
+          </div>
+
+          ${isReconcile ? `
+          <div class="subsection">
+            <div class="subheader"><h3>Kết quả đối chiếu</h3></div>
+            <div class="table-wrap">
+              <table class="table compact">
+                <thead>
+                  <tr>
+                    <th>Ngày</th>
+                    <th>Mô tả</th>
+                    <th>Sổ phụ NH</th>
+                    <th>Hạch toán</th>
+                    <th>Chênh lệch</th>
+                  </tr>
+                </thead>
+                <tbody id="bankReconResultBody">
+                  <tr><td colspan="5" class="empty">Chọn kỳ và tài khoản để xem kết quả đối chiếu.</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+          ` : ''}
+
+          <div class="form-actions">
+            ${!isReconcile ? `
+            <button type="button" class="btn primary" id="bankSaveBtn">Ghi sổ</button>
+            ` : `
+            <button type="button" class="btn" id="bankReconRunBtn">Chạy đối chiếu</button>
+            `}
+          </div>
+        </form>
+      </div>
+    `;
+
+            document.getElementById("backBank").addEventListener("click", () => {
+                renderBank();
+            });
+            // === Nạp danh sách hóa đơn vào dropdown ===
+            if (type === 'receipt' || type === 'payment') {
+                const sel = document.getElementById("bankHoaDonSelect");
+                if (sel) {
+                    try {
+                        if (type === 'receipt') {
+                            const list = await api("bank.listHoaDonBanNo");
+                            sel.innerHTML += list.map(h =>
+                                `<option value="${h.id}">${h.soCt} | ${h.doiTuong} | ${fmtMoneyVnd(h.conNo)}</option>`
+                            ).join("");
+                        } else if (type === 'payment') {
+                            const list = await api("bank.listHoaDonMuaNo");
+                            sel.innerHTML += list.map(h =>
+                                `<option value="${h.id}">${h.soCt} | ${h.doiTuong} | ${fmtMoneyVnd(h.conNo)}</option>`
+                            ).join("");
+                        }
+                    } catch (e) {
+                        console.error(e);
+                        alert("Không tải được danh sách hóa đơn.");
+                    }
+                }
+            }
+
+
+            if (!isReconcile) {
+                const hoaDonSelect = document.getElementById("bankHoaDonSelect");
+
+                document.getElementById("bankSaveBtn").addEventListener("click", async () => {
+                    const soCt = document.getElementById("bankSoCt").value.trim();
+                    const ngayStr = document.getElementById("bankNgay").value;
+                    const tkId = Number(document.getElementById("bankTkSelect").value) || 0;
+                    const soTien = Number(document.getElementById("bankSoTien").value) || 0;
+                    const doiTuong = document.getElementById("bankDoiTuong").value.trim();
+                    const noiDung = document.getElementById("bankNoiDung").value.trim();
+
+                    if (!ngayStr) {
+                        alert("Vui lòng chọn ngày chứng từ.");
+                        return;
+                    }
+                    if (!tkId) {
+                        alert("Vui lòng chọn tài khoản ngân hàng.");
+                        return;
+                    }
+                    if (!soTien || soTien <= 0) {
+                        alert("Số tiền phải lớn hơn 0.");
+                        return;
+                    }
+
+                    let hoaDonBanId = null;
+                    let hoaDonMuaId = null;
+                    if (hoaDonSelect && hoaDonSelect.value) {
+                        const hdId = Number(hoaDonSelect.value);
+                        if (isReceipt) {
+                            hoaDonBanId = hdId;
+                        } else if (isPayment) {
+                            hoaDonMuaId = hdId;
+                        }
+                    }
+
+                    const payload = {
+                        id: data?.id || 0,
+                        soCt: soCt || null,
+                        ngayCt: ngayStr,
+                        taiKhoanNganHangId: tkId,
+                        soTien,
+                        lyDo: noiDung || null,
+                        hoaDonBanId,
+                        hoaDonMuaId
+                    };
+
+                    if (isReceipt) {
+                        payload.nguoiNop = doiTuong || "Không rõ";
+                    } else if (isPayment) {
+                        payload.nguoiNhan = doiTuong || "Không rõ";
+                    }
+
+                    try {
+                        const cmd = isReceipt ? "bank.savePhieuThu" : "bank.savePhieuChi";
+                        const rs = await api(cmd, payload);
+                        alert("Đã lưu chứng từ ngân hàng.");
+                        renderBank();
+                    } catch (e) {
+                        console.error(e);
+                        alert("Lỗi khi lưu chứng từ ngân hàng: " + (e.message || e));
+                    }
+                });
+            } else {
+                // Đối chiếu sổ phụ (giữ nguyên phần bạn đã có)
+                document.getElementById("bankReconRunBtn").addEventListener("click", async () => {
+                    const period = document.getElementById("bankReconPeriod").value || "month";
+                    const tkId = Number(document.getElementById("bankReconTk").value) || 0;
+                    const { tuNgay, denNgay } = bankPeriodToRange(period);
+
+                    let soKe = [];
+                    try {
+                        soKe = await api("bank.listSoKe", { taiKhoanId: tkId, tuNgay, denNgay });
+                    } catch (e) {
+                        console.error(e);
+                        alert("Lỗi khi chạy đối chiếu sổ phụ.");
+                        return;
+                    }
+
+                    const tbody = document.getElementById("bankReconResultBody");
+                    if (!soKe || !soKe.length) {
+                        tbody.innerHTML = `<tr><td colspan="5" class="empty">Không có chênh lệch trong kỳ.</td></tr>`;
+                    } else {
+                        tbody.innerHTML = soKe.map(r => {
+                            const nh = r.thu > 0 ? r.thu : r.chi;
+                            const daHachToan = nh; // placeholder
+                            const chenhLech = 0;   // placeholder
+                            return `
+                  <tr>
+                    <td>${fmtDateVN(r.ngayCt)}</td>
+                    <td>${r.noiDung || r.loaiPhieu || ""}</td>
+                    <td>${fmtMoneyVnd(nh)}</td>
+                    <td>${fmtMoneyVnd(daHachToan)}</td>
+                    <td>${fmtMoneyVnd(chenhLech)}</td>
+                  </tr>`;
+                        }).join("");
+                    }
+                });
+            }
+        }
+
 
         function renderReport() {
             app.innerHTML = `
-          <div class="page-header">
-            <div>
-              <h2>📈 Báo cáo</h2>
-              <p class="muted">Báo cáo doanh thu, chi phí, lợi nhuận, dòng tiền, kho, công nợ</p>
-            </div>
-            <div class="actions">
-              <div class="btn-group">
-                <button class="btn tab active" data-rpt="pl">LN theo kỳ (P&L)</button>
-                <button class="btn tab" data-rpt="cashflow">Dòng tiền</button>
-                <button class="btn tab" data-rpt="inventory">Báo cáo kho</button>
-                <button class="btn tab" data-rpt="arap">Công nợ tổng hợp</button>
-              </div>
-            </div>
+      <div class="page-header">
+        <div>
+          <h2>📈 Báo cáo</h2>
+          <p class="muted">Lợi nhuận theo kỳ, báo cáo kho và công nợ tổng hợp</p>
+        </div>
+        <div class="actions">
+          <div class="btn-group">
+            <button class="btn tab active" data-rpt="pl">LN theo kỳ (P&L)</button>
+            <button class="btn tab" data-rpt="inventory">Báo cáo kho</button>
+            <button class="btn tab" data-rpt="arap">Công nợ tổng hợp</button>
           </div>
+        </div>
+      </div>
 
-          <div class="toolbar">
-            <select class="input" id="period">
-              <option>Tháng này</option>
-              <option>Quý này</option>
-              <option selected>Năm nay</option>
-              <option>Tùy chọn…</option>
-            </select>
-            <input class="input" id="from" type="date" style="display:none"/>
-            <input class="input" id="to" type="date" style="display:none"/>
-            <div class="spacer"></div>
-            <button class="btn" id="btnPdf">Xuất PDF</button>
-            <button class="btn" id="btnXls">Xuất Excel</button>
-          </div>
+      <div class="toolbar">
+        <select class="input" id="period">
+          <option>Tháng này</option>
+          <option>Quý này</option>
+          <option selected>Năm nay</option>
+          <option>Tùy chọn…</option>
+        </select>
+        <input class="input" id="from" type="date" style="display:none"/>
+        <input class="input" id="to" type="date" style="display:none"/>
+        <div class="spacer"></div>
+      </div>
 
-          <div id="reportView"></div>
-        `;
+      <div id="reportView"></div>
+    `;
 
             document.querySelectorAll('.btn.tab').forEach(b => {
                 b.addEventListener('click', () => {
@@ -4000,94 +5283,421 @@
                 });
             });
 
-            // Ẩn/hiện ngày khi chọn "Tùy chọn…"
-            const period = document.getElementById('period'), from = document.getElementById('from'), to = document.getElementById('to');
+            const period = document.getElementById('period'),
+                from = document.getElementById('from'),
+                to = document.getElementById('to');
+
             period.addEventListener('change', () => {
                 const cust = period.value.includes('Tùy');
                 from.style.display = cust ? '' : 'none';
                 to.style.display = cust ? '' : 'none';
             });
 
-            document.getElementById('btnPdf').addEventListener('click', () => alert('Xuất PDF (demo)'));
-            document.getElementById('btnXls').addEventListener('click', () => alert('Xuất Excel (demo)'));
-
             renderReportTab('pl'); // tab mặc định
         }
 
+        function getReportRange() {
+            const sel = document.getElementById('period').value;
+            const today = new Date();
+            let from, to;
+
+            if (sel.includes('Tháng')) {
+                // Tháng này
+                from = new Date(today.getFullYear(), today.getMonth(), 1);
+                to = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+            } else if (sel.includes('Quý')) {
+                const q = Math.floor(today.getMonth() / 3); // 0-based
+                const startMonth = q * 3;
+                from = new Date(today.getFullYear(), startMonth, 1);
+                to = new Date(today.getFullYear(), startMonth + 3, 0);
+            } else if (sel.includes('Năm')) {
+                from = new Date(today.getFullYear(), 0, 1);
+                to = new Date(today.getFullYear(), 11, 31);
+            } else {
+                // Tùy chọn
+                const f = document.getElementById('from').value;
+                const t = document.getElementById('to').value;
+                from = f ? new Date(f) : new Date(today.getFullYear(), 0, 1);
+                to = t ? new Date(t) : today;
+            }
+
+            const pad = n => String(n).padStart(2, '0');
+            const toStr = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+            return { from: toStr(from), to: toStr(to) };
+        }
+
+
         function renderReportTab(kind) {
-            const el = document.getElementById('reportView');
-            if (kind === 'pl') {
-                el.innerHTML = `
-            <div class="card">
-              <header class="card-title">Báo cáo Lãi/Lỗ (P&L) — Năm nay</header>
-              <div class="table-wrap">
-                <table class="table">
-                  <thead><tr><th>Khoản mục</th><th>Số tiền</th></tr></thead>
-                  <tbody>
-                    <tr><td>Doanh thu thuần</td><td class="right">₫ 0</td></tr>
-                    <tr><td>Giá vốn hàng bán</td><td class="right">₫ 0</td></tr>
-                    <tr><td><b>Lợi nhuận gộp</b></td><td class="right"><b>₫ 0</b></td></tr>
-                    <tr><td>Chi phí bán hàng</td><td class="right">₫ 0</td></tr>
-                    <tr><td>Chi phí quản lý</td><td class="right">₫ 0</td></tr>
-                    <tr><td>Chi phí tài chính</td><td class="right">₫ 0</td></tr>
-                    <tr><td><b>Lợi nhuận trước thuế</b></td><td class="right"><b>₫ 0</b></td></tr>
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          `;
-            } else if (kind === 'cashflow') {
-                el.innerHTML = `
-            <div class="card">
-              <header class="card-title">Dòng tiền — Năm nay</header>
-              <div class="table-wrap">
-                <table class="table">
-                  <thead><tr><th>Nhóm</th><th>Số tiền</th></tr></thead>
-                  <tbody>
-                    <tr><td>Tiền thu từ bán hàng</td><td class="right">₫ 0</td></tr>
-                    <tr><td>Tiền chi trả NCC</td><td class="right">₫ 0</td></tr>
-                    <tr><td>Chi phí vận hành</td><td class="right">₫ 0</td></tr>
-                    <tr><td><b>Lưu chuyển tiền thuần</b></td><td class="right"><b>₫ 0</b></td></tr>
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          `;
-            } else if (kind === 'inventory') {
-                el.innerHTML = `
-            <div class="card">
-              <header class="card-title">Báo cáo tồn kho theo nhóm hàng</header>
-              <div class="table-wrap">
-                <table class="table">
-                  <thead><tr><th>Nhóm hàng</th><th>Số mặt hàng</th><th>SL tồn</th><th>Giá trị</th></tr></thead>
-                  <tbody>
-                    <tr><td>Giấy</td><td>25</td><td>0</td><td class="right">₫ 0</td></tr>
-                    <tr><td>Mực in</td><td>8</td><td>0</td><td class="right">₫ 0</td></tr>
-                    <tr><td>Thành phẩm</td><td>40</td><td>0</td><td class="right">₫ 0</td></tr>
-                    <tr><td colspan="4" class="empty">…</td></tr>
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          `;
-            } else if (kind === 'arap') {
-                el.innerHTML = `
-            <div class="card">
-              <header class="card-title">Tổng hợp công nợ (AR/AP)</header>
-              <div class="table-wrap">
-                <table class="table">
-                  <thead><tr><th>Loại</th><th>Số dư đầu</th><th>Phát sinh</th><th>Số dư cuối</th></tr></thead>
-                  <tbody>
-                    <tr><td>Phải thu (AR)</td><td class="right">₫ 0</td><td class="right">₫ 0</td><td class="right">₫ 0</td></tr>
-                    <tr><td>Phải trả (AP)</td><td class="right">₫ 0</td><td class="right">₫ 0</td><td class="right">₫ 0</td></tr>
-                    <tr><td colspan="4" class="empty">…</td></tr>
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          `;
+            const el = document.getElementById("reportView");
+
+            // ======= BÁO CÁO LỢI NHUẬN =======
+            if (kind === "pl") {
+                const { from, to } = getReportRange();
+                el.innerHTML = `<div class="card"><div class="card-body">Đang tải báo cáo lợi nhuận…</div></div>`;
+
+                api("report.getProfit", { tuNgay: from, denNgay: to })
+                    .then(list => {
+                        if (!list || !list.length) {
+                            el.innerHTML = `<div class="card"><div class="card-body muted">Không có dữ liệu trong kỳ.</div></div>`;
+                            return;
+                        }
+
+                        let totalRevenue = 0;
+                        let totalGiaVon = 0;
+                        let totalCpQL = 0, totalCpBH = 0, totalCpPS = 0;
+                        let totalCost = 0, totalProfit = 0;
+
+                        list.forEach(row => {
+                            totalRevenue += row.doanhThu || 0;
+                            totalGiaVon += row.giaVon || 0;
+                            totalCpQL += row.chiPhiQuanLy || 0;
+                            totalCpBH += row.chiPhiBanHang || 0;
+                            totalCpPS += row.chiPhiPhatSinh || 0;
+                            totalCost += row.tongChiPhi || 0;
+                            totalProfit += row.loiNhuan || 0;
+                        });
+
+                        el.innerHTML = `
+<div class="card">
+  <header class="card-title">Lợi nhuận tổng hợp trong kỳ</header>
+  <div class="table-wrap">
+    <table class="table">
+      <thead>
+        <tr><th>Khoản mục</th><th class="right">Số tiền</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Doanh thu</td>
+          <td class="right">${fmtMoney(totalRevenue)}</td>
+        </tr>
+        <tr>
+          <td>Giá vốn sản phẩm</td>
+          <td class="right">${fmtMoney(totalGiaVon)}</td>
+        </tr>
+        <tr>
+          <td>Chi phí quản lý (5% DT)</td>
+          <td class="right">${fmtMoney(totalCpQL)}</td>
+        </tr>
+        <tr>
+          <td>Chi phí bán hàng (5% DT)</td>
+          <td class="right">${fmtMoney(totalCpBH)}</td>
+        </tr>
+        <tr>
+          <td>Chi phí phát sinh (5% DT)</td>
+          <td class="right">${fmtMoney(totalCpPS)}</td>
+        </tr>
+        <tr>
+          <td><b>Tổng chi phí</b></td>
+          <td class="right"><b>${fmtMoney(totalCost)}</b></td>
+        </tr>
+        <tr>
+          <td><b>Lợi nhuận</b></td>
+          <td class="right"><b>${fmtMoney(totalProfit)}</b></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="card mt-2">
+  <header class="card-title">Chi tiết theo tháng</header>
+  <div class="table-wrap">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Kỳ (Tháng/Năm)</th>
+          <th class="right">Doanh thu</th>
+          <th class="right">Giá vốn</th>
+          <th class="right">CP quản lý</th>
+          <th class="right">CP bán hàng</th>
+          <th class="right">CP phát sinh</th>
+          <th class="right">Tổng chi phí</th>
+          <th class="right">Lợi nhuận</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${list
+                                .map(row => {
+                                    const ky =
+                                        (row.thang ? String(row.thang).padStart(2, "0") : "??") +
+                                        "/" +
+                                        row.nam;
+                                    return `
+          <tr>
+            <td>${ky}</td>
+            <td class="right">${fmtMoney(row.doanhThu || 0)}</td>
+            <td class="right">${fmtMoney(row.giaVon || 0)}</td>
+            <td class="right">${fmtMoney(row.chiPhiQuanLy || 0)}</td>
+            <td class="right">${fmtMoney(row.chiPhiBanHang || 0)}</td>
+            <td class="right">${fmtMoney(row.chiPhiPhatSinh || 0)}</td>
+            <td class="right">${fmtMoney(row.tongChiPhi || 0)}</td>
+            <td class="right">${fmtMoney(row.loiNhuan || 0)}</td>
+          </tr>`;
+                                })
+                                .join("")}
+      </tbody>
+    </table>
+  </div>
+</div>
+        `;
+                    })
+                    .catch(err => {
+                        console.error(err);
+                        el.innerHTML = `<div class="card"><div class="card-body error">Lỗi tải báo cáo lợi nhuận.</div></div>`;
+                    });
+
+                // ======= BÁO CÁO TỒN KHO =======
+            } else if (kind === "inventory") {
+                const { from, to } = getReportRange();
+                el.innerHTML = `<div class="card"><div class="card-body">Đang tải báo cáo tồn kho…</div></div>`;
+
+                // Backend: map tới sp [acc].[sp_bao_cao_ton_kho] @TuNgay, @DenNgay, @KhoId
+                api("report.getInventory", { tuNgay: from, denNgay: to, khoId: null })
+                    .then(list => {
+                        if (!list || !list.length) {
+                            el.innerHTML = `<div class="card"><div class="card-body muted">Không có dữ liệu tồn kho trong kỳ.</div></div>`;
+                            return;
+                        }
+
+                        let totalGtTonDau = 0,
+                            totalGtNhap = 0,
+                            totalGtXuat = 0,
+                            totalGtTonCuoi = 0;
+                        let belowMinCount = 0;
+
+                        list.forEach(row => {
+                            const gtTonDau = row.giaTriTonDau ?? row.gt_ton_dau ?? row.gtTonDau ?? 0;
+                            const gtNhap = row.giaTriNhap ?? row.gt_nhap ?? row.gtNhap ?? 0;
+                            const gtXuat = row.giaTriXuat ?? row.gt_xuat ?? row.gtXuat ?? 0;
+                            const gtTonCuoi = row.giaTriTonCuoi ?? row.gt_ton_cuoi ?? row.gtTonCuoi ?? 0;
+                            const slTonCuoi = row.soLuongTonCuoi ?? row.sl_ton_cuoi ?? row.slTonCuoi ?? 0;
+                            const nguongTon = row.nguongTon ?? row.nguong_ton ?? 0;
+
+                            totalGtTonDau += gtTonDau;
+                            totalGtNhap += gtNhap;
+                            totalGtXuat += gtXuat;
+                            totalGtTonCuoi += gtTonCuoi;
+
+                            if (nguongTon && slTonCuoi < nguongTon) {
+                                belowMinCount++;
+                            }
+                        });
+
+                        el.innerHTML = `
+<div class="card">
+  <header class="card-title">Tổng quan tồn kho trong kỳ</header>
+  <div class="table-wrap">
+    <table class="table">
+      <tbody>
+        <tr>
+          <td>Giá trị tồn đầu kỳ</td>
+          <td class="right">${fmtMoney(totalGtTonDau)}</td>
+        </tr>
+        <tr>
+          <td>Giá trị nhập trong kỳ</td>
+          <td class="right">${fmtMoney(totalGtNhap)}</td>
+        </tr>
+        <tr>
+          <td>Giá trị xuất trong kỳ</td>
+          <td class="right">${fmtMoney(totalGtXuat)}</td>
+        </tr>
+        <tr>
+          <td><b>Giá trị tồn cuối kỳ</b></td>
+          <td class="right"><b>${fmtMoney(totalGtTonCuoi)}</b></td>
+        </tr>
+        <tr>
+          <td>Số dòng dưới ngưỡng tồn</td>
+          <td class="right">${belowMinCount}</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="card mt-2">
+  <header class="card-title">Chi tiết tồn kho theo vật tư &amp; kho</header>
+  <div class="table-wrap">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Mã VT</th>
+          <th>Tên vật tư</th>
+          <th>Kho</th>
+          <th class="right">SL tồn đầu</th>
+          <th class="right">GT tồn đầu</th>
+          <th class="right">SL nhập</th>
+          <th class="right">GT nhập</th>
+          <th class="right">SL xuất</th>
+          <th class="right">GT xuất</th>
+          <th class="right">SL tồn cuối</th>
+          <th class="right">GT tồn cuối</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${list
+                                .map(row => {
+                                    const ma = row.vatTuMa ?? row.vat_tu_ma ?? "";
+                                    const ten = row.vatTuTen ?? row.vat_tu_ten ?? "";
+                                    const kho = row.khoTen ?? row.kho_ten ?? "";
+
+                                    const slTonDau = row.soLuongTonDau ?? row.sl_ton_dau ?? 0;
+                                    const gtTonDau = row.giaTriTonDau ?? row.gt_ton_dau ?? 0;
+                                    const slNhap = row.soLuongNhap ?? row.sl_nhap ?? 0;
+                                    const gtNhap = row.giaTriNhap ?? row.gt_nhap ?? 0;
+                                    const slXuat = row.soLuongXuat ?? row.sl_xuat ?? 0;
+                                    const gtXuat = row.giaTriXuat ?? row.gt_xuat ?? 0;
+                                    const slTonCuoi = row.soLuongTonCuoi ?? row.sl_ton_cuoi ?? 0;
+                                    const gtTonCuoi = row.giaTriTonCuoi ?? row.gt_ton_cuoi ?? 0;
+
+
+                                    return `
+        <tr>
+          <td>${ma}</td>
+          <td>${ten}</td>
+          <td>${kho}</td>
+          <td class="right">${slTonDau}</td>
+          <td class="right">${fmtMoney(gtTonDau)}</td>
+          <td class="right">${slNhap}</td>
+          <td class="right">${fmtMoney(gtNhap)}</td>
+          <td class="right">${slXuat}</td>
+          <td class="right">${fmtMoney(gtXuat)}</td>
+          <td class="right">${slTonCuoi}</td>
+          <td class="right">${fmtMoney(gtTonCuoi)}</td>
+        </tr>`;
+                                })
+                                .join("")}
+      </tbody>
+    </table>
+  </div>
+</div>
+        `;
+                    })
+                    .catch(err => {
+                        console.error(err);
+                        el.innerHTML = `<div class="card"><div class="card-body error">Lỗi tải báo cáo tồn kho.</div></div>`;
+                    });
+
+                // ======= BÁO CÁO CÔNG NỢ TỔNG HỢP (AR/AP) =======
+            } else if (kind === "arap") {
+                const { from, to } = getReportRange();
+                el.innerHTML = `<div class="card"><div class="card-body">Đang tải báo cáo công nợ tổng hợp…</div></div>`;
+
+                // Backend: map tới sp [acc].[sp_bao_cao_cong_no_tong_hop] @TuNgay, @DenNgay
+                api("report.getArapSummary", { tuNgay: from, denNgay: to })
+                    .then(list => {
+                        if (!list || !list.length) {
+                            el.innerHTML = `<div class="card"><div class="card-body muted">Không có dữ liệu công nợ trong kỳ.</div></div>`;
+                            return;
+                        }
+
+                        let noDauKH = 0,
+                            noCuoiKH = 0,
+                            noDauNCC = 0,
+                            noCuoiNCC = 0;
+                        list.forEach(row => {
+                            const loai = row.loaiDoiTuong ?? row.loai_doi_tuong;
+                            const noDau = row.noDauKy ?? row.no_dau_ky ?? row.no_dau ?? 0;
+                            const noCuoi = row.noCuoiKy ?? row.no_cuoi_ky ?? row.no_cuoi ?? 0;
+
+                            if (loai === "KH") {
+                                noDauKH += noDau;
+                                noCuoiKH += noCuoi;
+                            } else if (loai === "NCC") {
+                                noDauNCC += noDau;
+                                noCuoiNCC += noCuoi;
+                            }
+                        });
+
+                        const netDau = noDauKH - noDauNCC;
+                        const netCuoi = noCuoiKH - noCuoiNCC;
+
+                        el.innerHTML = `
+<div class="card">
+  <header class="card-title">Tổng quan công nợ</header>
+  <div class="table-wrap">
+    <table class="table">
+      <thead>
+        <tr>
+          <th></th>
+          <th class="right">Nợ đầu kỳ</th>
+          <th class="right">Nợ cuối kỳ</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Phải thu khách hàng</td>
+          <td class="right">${fmtMoney(noDauKH)}</td>
+          <td class="right">${fmtMoney(noCuoiKH)}</td>
+        </tr>
+        <tr>
+          <td>Phải trả nhà cung cấp</td>
+          <td class="right">${fmtMoney(noDauNCC)}</td>
+          <td class="right">${fmtMoney(noCuoiNCC)}</td>
+        </tr>
+        <tr>
+          <td><b>Vị thế ròng (Phải thu - Phải trả)</b></td>
+          <td class="right"><b>${fmtMoney(netDau)}</b></td>
+          <td class="right"><b>${fmtMoney(netCuoi)}</b></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="card mt-2">
+  <header class="card-title">Chi tiết theo đối tượng</header>
+  <div class="table-wrap">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Loại</th>
+          <th>Mã</th>
+          <th>Tên</th>
+          <th class="right">Nợ đầu kỳ</th>
+          <th class="right">Phát sinh tăng</th>
+          <th class="right">Phát sinh giảm</th>
+          <th class="right">Nợ cuối kỳ</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${list
+                                .map(row => {
+                                    const loai = row.loaiDoiTuong ?? row.loai_doi_tuong;
+                                    const ma = row.doiTuongMa ?? row.doi_tuong_ma ?? "";
+                                    const ten = row.doiTuongTen ?? row.doi_tuong_ten ?? "";
+                                    const noDau = row.noDauKy ?? row.no_dau_ky ?? row.no_dau ?? 0;
+                                    const psTang = row.phatSinhTang ?? row.phat_sinh_tang ?? 0;
+                                    const psGiam = row.phatSinhGiam ?? row.phat_sinh_giam ?? 0;
+                                    const noCuoi = row.noCuoiKy ?? row.no_cuoi_ky ?? row.no_cuoi ?? 0;
+
+                                    const loaiLabel = loai === "KH" ? "KHÁCH HÀNG" : "NHÀ CUNG CẤP";
+
+                                    return `
+        <tr>
+          <td>${loaiLabel}</td>
+          <td>${ma}</td>
+          <td>${ten}</td>
+          <td class="right">${fmtMoney(noDau)}</td>
+          <td class="right">${fmtMoney(psTang)}</td>
+          <td class="right">${fmtMoney(psGiam)}</td>
+          <td class="right">${fmtMoney(noCuoi)}</td>
+        </tr>`;
+                                })
+                                .join("")}
+      </tbody>
+    </table>
+  </div>
+</div>
+        `;
+                    })
+                    .catch(err => {
+                        console.error(err);
+                        el.innerHTML = `<div class="card"><div class="card-body error">Lỗi tải báo cáo công nợ.</div></div>`;
+                    });
             }
         }
+
+
 
         /* ====== THUẾ (GTGT) ====== */
         function renderTax() {
@@ -4162,177 +5772,48 @@
             document.getElementById('btnExportXml').addEventListener('click', () => alert('Kết xuất XML (demo)'));
             document.getElementById('btnExportPdf').addEventListener('click', () => alert('In PDF (demo)'));
         }
-
-        /* ====== PHÂN QUYỀN & CẤU HÌNH ====== */
         function renderSettings() {
+            // Khung chung của trang Cấu hình
             app.innerHTML = `
-          <div class="page-header">
-            <div>
-              <h2>⚙️ Cấu hình & Phân quyền</h2>
-              <p class="muted">Quản lý người dùng, vai trò theo bộ phận, và quyền trên từng phân hệ</p>
-            </div>
-            <div class="actions">
-              <div class="btn-group">
-                <button class="btn tab active" data-set="users">Người dùng</button>
-                <button class="btn tab" data-set="roles">Vai trò</button>
-                <button class="btn tab" data-set="perm">Phân quyền</button>
-                <button class="btn tab" data-set="general">Cấu hình chung</button>
-              </div>
-            </div>
-          </div>
+    <div class="page-header">
+      <div>
+        <h2>⚙️ Cấu hình</h2>
+        <p class="muted">Quản lý người dùng, vai trò & cấu hình chung</p>
+      </div>
+      <div class="actions">
+        <div class="btn-group">
+          <button class="btn tab active" data-tab="users">Người dùng</button>
+          <button class="btn tab" data-tab="general">Cấu hình chung</button>
+        </div>
+      </div>
+    </div>
+    <div id="settingsView"></div>
+    `;
 
-          <div id="settingsView"></div>
-        `;
+            // Gắn sự kiện chuyển tab
+            document.querySelectorAll(".btn.tab").forEach(btn => {
+                btn.addEventListener("click", () => {
+                    document.querySelectorAll(".btn.tab").forEach(b => b.classList.remove("active"));
+                    btn.classList.add("active");
 
-            document.querySelectorAll('.btn.tab').forEach(b => {
-                b.addEventListener('click', () => {
-                    document.querySelectorAll('.btn.tab').forEach(x => x.classList.remove('active'));
-                    b.classList.add('active');
-                    renderSettingsTab(b.dataset.set);
+                    const tab = btn.dataset.tab;
+                    renderSettingsTab(tab);
                 });
             });
 
-            renderSettingsTab('users'); // tab mặc định
+            // Mặc định mở tab Người dùng
+            renderSettingsTab("users");
         }
 
+
         function renderSettingsTab(tab) {
-            const el = document.getElementById('settingsView');
+            const container = document.getElementById("settingsView");
+            if (!container) return;
 
-            if (tab === 'users') {
-                el.innerHTML = `
-            <div class="page-header" style="margin-top:-8px">
-              <div><h3>Người dùng</h3><p class="muted">Tạo mới / khóa / reset mật khẩu</p></div>
-              <div class="actions"><button class="btn primary" id="btnNewUser">+ Tạo người dùng</button></div>
-            </div>
-
-            <div class="card">
-              <div class="table-wrap">
-                <table class="table">
-                  <thead><tr><th>Tài khoản</th><th>Họ tên</th><th>Vai trò</th><th>Trạng thái</th><th></th></tr></thead>
-                  <tbody>
-                    <tr><td>ketoan.truong</td><td>Nguyễn Thị A</td><td>Kế toán tổng hợp</td><td><span class="badge ok">Hoạt động</span></td><td><button class="btn link">Sửa</button></td></tr>
-                    <tr><td>thuquy.01</td><td>Trần Văn B</td><td>Thủ quỹ</td><td><span class="badge ok">Hoạt động</span></td><td><button class="btn link">Sửa</button></td></tr>
-                    <tr><td>thukho.01</td><td>Phạm C</td><td>Thủ kho</td><td><span class="badge warn">Tạm khóa</span></td><td><button class="btn link">Sửa</button></td></tr>
-                    <tr><td colspan="5" class="empty">…</td></tr>
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          `;
-
-                document.getElementById('btnNewUser').addEventListener('click', () => {
-                    el.innerHTML = `
-              <div class="page-header" style="margin-top:-8px">
-                <div><h3>➕ Tạo người dùng</h3><p class="muted">UI tĩnh – chưa kết nối dữ liệu</p></div>
-                <div class="actions"><button class="btn" id="backUsers">← Danh sách</button></div>
-              </div>
-
-              <div class="card">
-                <form class="form">
-                  <div class="grid form-grid">
-                    <label class="field"><span>Tài khoản</span><input class="input" placeholder="vd: ketoan.truong" /></label>
-                    <label class="field"><span>Họ tên</span><input class="input" placeholder="Họ và tên" /></label>
-                    <label class="field"><span>Email</span><input class="input" type="email" placeholder="user@example.com" /></label>
-                    <label class="field"><span>Vai trò</span>
-                      <select class="input">
-                        <option>Kế toán mua hàng</option>
-                        <option>Kế toán bán hàng</option>
-                        <option>Thủ kho</option>
-                        <option>Thủ quỹ</option>
-                        <option>Kế toán thuế</option>
-                        <option>Giám đốc</option>
-                        <option>Kế toán tổng hợp</option>
-                      </select>
-                    </label>
-                    <label class="field"><span>Trạng thái</span>
-                      <select class="input"><option>Hoạt động</option><option>Tạm khóa</option></select>
-                    </label>
-                  </div>
-                  <div class="form-actions">
-                    <button type="button" class="btn">Lưu</button>
-                    <button type="button" class="btn">Đặt lại mật khẩu</button>
-                    <button type="button" class="btn primary" disabled>Tạo</button>
-                  </div>
-                </form>
-              </div>
-            `;
-                    document.getElementById('backUsers').addEventListener('click', () => renderSettingsTab('users'));
-                });
-            }
-
-            if (tab === 'roles') {
-                el.innerHTML = `
-            <div class="page-header" style="margin-top:-8px">
-              <div><h3>Vai trò (Role)</h3><p class="muted">Vai trò theo bộ phận: mua hàng, bán hàng, kho, quỹ, NH, thuế, GD</p></div>
-              <div class="actions"><button class="btn primary" id="btnNewRole">+ Tạo vai trò</button></div>
-            </div>
-
-            <div class="card">
-              <div class="table-wrap">
-                <table class="table">
-                  <thead><tr><th>Mã</th><th>Tên vai trò</th><th>Mô tả</th><th></th></tr></thead>
-                  <tbody>
-                    <tr><td>PO_ACC</td><td>Kế toán mua hàng</td><td>Quản lý đơn/nhập/hoá đơn mua</td><td><button class="btn link">Sửa</button></td></tr>
-                    <tr><td>SO_ACC</td><td>Kế toán bán hàng</td><td>Quản lý báo giá/đơn/hoá đơn bán</td><td><button class="btn link">Sửa</button></td></tr>
-                    <tr><td>STORE</td><td>Thủ kho</td><td>Nhập–xuất–tồn, lệnh SX</td><td><button class="btn link">Sửa</button></td></tr>
-                    <tr><td>CASH</td><td>Thủ quỹ</td><td>Phiếu thu/chi, sổ quỹ</td><td><button class="btn link">Sửa</button></td></tr>
-                    <tr><td>BANK</td><td>Kế toán NH</td><td>UNC, đối chiếu sổ phụ</td><td><button class="btn link">Sửa</button></td></tr>
-                    <tr><td>TAX</td><td>Kế toán thuế</td><td>Tổng hợp & tờ khai GTGT</td><td><button class="btn link">Sửa</button></td></tr>
-                    <tr><td>CEO</td><td>Giám đốc</td><td>Xem tổng quan, duyệt chứng từ</td><td><button class="btn link">Sửa</button></td></tr>
-                    <tr><td colspan="4" class="empty">…</td></tr>
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          `;
-
-                document.getElementById('btnNewRole')?.addEventListener('click', () => {
-                    alert('UI tĩnh: form tạo role (demo)');
-                });
-            }
-
-            if (tab === 'perm') {
-                el.innerHTML = `
-            <div class="page-header" style="margin-top:-8px">
-              <div><h3>Ma trận phân quyền</h3><p class="muted">Gán quyền theo Vai trò × Phân hệ</p></div>
-              <div class="actions"><button class="btn">Lưu</button></div>
-            </div>
-
-            <div class="card">
-              <div class="table-wrap">
-                <table class="table perm">
-                  <thead>
-                    <tr>
-                      <th>Vai trò \\ Phân hệ</th>
-                      <th>Dashboard</th>
-                      <th>Mua hàng</th>
-                      <th>Bán hàng</th>
-                      <th>Kho</th>
-                      <th>Công nợ</th>
-                      <th>Quỹ</th>
-                      <th>Ngân hàng</th>
-                      <th>Báo cáo</th>
-                      <th>Thuế</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    ${renderPermRow('PO_ACC')}
-                    ${renderPermRow('SO_ACC')}
-                    ${renderPermRow('STORE')}
-                    ${renderPermRow('CASH')}
-                    ${renderPermRow('BANK')}
-                    ${renderPermRow('TAX')}
-                    ${renderPermRow('CEO')}
-                  </tbody>
-                </table>
-              </div>
-              <p class="muted" style="margin-top:8px">Mỗi ô gồm: <b>X</b>=Xem, <b>S</b>=Sửa, <b>Xóa</b>, <b>D</b>=Duyệt, <b>G</b>=Ghi sổ (UI tĩnh).</p>
-            </div>
-          `;
-            }
-
-            if (tab === 'general') {
-                el.innerHTML = `
+            if (tab === "users") {
+                renderUserSettings(container);
+            } else {
+                container.innerHTML = `
             <div class="card">
               <header class="card-title">Cấu hình chung</header>
               <div class="grid form-grid">
@@ -4340,7 +5821,6 @@
                   <span>Ngôn ngữ</span>
                   <select class="input" id="langSelect">
                     <option value="vi" selected>Tiếng Việt</option>
-                    <option value="en">English</option>
                   </select>
                 </label>
                 <label class="field">
@@ -4361,6 +5841,183 @@
                     document.documentElement.dataset.theme = e.target.value; // demo toggle
                     alert('Đổi theme (demo)');
                 });
+            }
+        }
+
+        /* ========== QUẢN LÝ NGƯỜI DÙNG ========== */
+        async function renderUserSettings(container) {
+            container.innerHTML = `
+    <div class="card">
+      <header class="card-title flex between">
+        <span>Người dùng hệ thống</span>
+        <button id="btnAddUser" class="btn small primary">+ Thêm người dùng</button>
+      </header>
+      <div class="table-wrap">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Tên đăng nhập</th>
+              <th>Họ tên</th>
+              <th>Vai trò</th>
+              <th>Đang hoạt động</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="userTableBody">
+            <tr><td colspan="5" class="empty">Đang tải...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div id="userModalHost"></div>
+  `;
+
+            document.getElementById("btnAddUser")
+                .addEventListener("click", () => openUserModal());
+
+            await loadUsersToTable();
+        }
+
+        /* ========== TẢI DANH SÁCH NGƯỜI DÙNG ========== */
+        async function loadUsersToTable() {
+            const body = document.getElementById("userTableBody");
+            if (!body) return;
+
+            try {
+                const rs = await api("user.list");
+                const users = rs.items || rs.data || rs.users || rs;
+
+                console.log("Backend data:", rs);
+
+                if (!users.length) {
+                    body.innerHTML = `<tr><td colspan="5" class="empty">Chưa có người dùng nào.</td></tr>`;
+                    return;
+                }
+
+                const roleMap = {
+                    admin: "Quản trị hệ thống",
+                    ke_toan: "Kế toán",
+                    kho: "Nhân viên kho",
+                    mua_ban: "Nhân viên mua/bán hàng"
+                };
+
+                body.innerHTML = users.map(u => `
+      <tr data-id="${u.id}">
+        <td>${u.tenDangNhap}</td>
+        <td>${u.hoTen}</td>
+        <td>${roleMap[u.vaiTro] || u.vaiTro}</td>
+        <td>${u.dangHoatDong ? "✔" : "✖"}</td>
+        <td class="actions">
+          <button class="btn small" data-action="edit">Sửa</button>
+          <button class="btn small danger" data-action="delete">Xóa</button>
+        </td>
+      </tr>
+    `).join("");
+
+                body.querySelectorAll("button[data-action]").forEach(btn => {
+                    btn.addEventListener("click", e => {
+                        const tr = e.target.closest("tr");
+                        const id = Number(tr.dataset.id);
+                        const action = e.target.dataset.action;
+                        const u = users.find(x => x.id === id);
+                        if (!u) return;
+
+                        if (action === "edit") openUserModal(u);
+                        if (action === "delete") confirmDeleteUser(id);
+                    });
+                });
+
+            } catch (err) {
+                console.error(err);
+                body.innerHTML = `<tr><td colspan="5" class="empty">Lỗi tải danh sách người dùng.</td></tr>`;
+            }
+        }
+
+        /* ========== MODAL THÊM / SỬA NGƯỜI DÙNG ========== */
+        function openUserModal(user) {
+            const host = document.getElementById("userModalHost");
+            if (!host) return;
+
+            const isEdit = !!user;
+            const role = user?.vaiTro || "ke_toan";
+
+            host.innerHTML = `
+    <div class="user-modal">
+      <h3>${isEdit ? "Sửa người dùng" : "Thêm người dùng"}</h3>
+
+      <label>Tên đăng nhập</label>
+      <input id="uUsername" class="input" ${isEdit ? "disabled" : ""} value="${user?.tenDangNhap || ""}">
+
+      <label>Họ tên</label>
+      <input id="uFullName" class="input" value="${user?.hoTen || ""}">
+
+      <label>Vai trò</label>
+      <select id="uRole" class="input">
+        <option value="admin" ${role === "admin" ? "selected" : ""}>Admin</option>
+        <option value="ke_toan" ${role === "ke_toan" ? "selected" : ""}>Kế toán</option>
+        <option value="kho" ${role === "kho" ? "selected" : ""}>Nhân viên kho</option>
+        <option value="mua_ban" ${role === "mua_ban" ? "selected" : ""}>Nhân viên mua/bán hàng</option>
+      </select>
+
+      <label>Mật khẩu ${isEdit ? "(để trống nếu không đổi)" : ""}</label>
+      <input id="uPassword" type="password" class="input">
+
+      <label><input id="uActive" type="checkbox" ${user?.dangHoatDong !== false ? "checked" : ""}> Đang hoạt động</label>
+
+      <div class="form-actions">
+        <button class="btn cancel" id="btnCancelUser">Hủy</button>
+        <button class="btn primary" id="btnSaveUser">Lưu</button>
+      </div>
+    </div>
+  `;
+
+            // Hiển thị modal
+            host.classList.add("active");
+
+            // Hành động
+            document.getElementById("btnCancelUser").onclick = () => host.classList.remove("active");
+            document.getElementById("btnSaveUser").onclick = () => saveUser(user?.id || null);
+        }
+
+
+        async function saveUser(id) {
+            const errBox = document.getElementById("userFormError");
+            errBox.textContent = "";
+
+            const dto = {
+                id,
+                tenDangNhap: document.getElementById("uUsername").value.trim(),
+                hoTen: document.getElementById("uFullName").value.trim(),
+                vaiTro: document.getElementById("uRole").value,
+                dangHoatDong: document.getElementById("uActive").checked,
+                matKhauMoi: document.getElementById("uPassword").value || null
+            };
+
+            if (!dto.tenDangNhap || !dto.hoTen || (!id && !dto.matKhauMoi)) {
+                errBox.textContent = "Vui lòng nhập đầy đủ thông tin.";
+                return;
+            }
+
+            try {
+                await api("user.save", dto);
+                document.getElementById("userModalHost").innerHTML = "";
+                await loadUsersToTable();
+            } catch (err) {
+                console.error(err);
+                errBox.textContent = err.error || "Lưu người dùng thất bại.";
+            }
+        }
+
+        async function confirmDeleteUser(id) {
+            if (!confirm("Bạn có chắc muốn xóa người dùng này?")) return;
+
+            try {
+                await api("user.delete", { id });
+                await loadUsersToTable();
+            } catch (err) {
+                console.error(err);
+                alert(err.error || "Không xóa được người dùng.");
             }
         }
 
@@ -4387,8 +6044,7 @@
             const btn = document.querySelector(`.sidebar button[data-view="${view}"]`);
             if (btn) btn.classList.add("active");
 
-            if (view === "dashboard") renderDashboard();
-            else if (view === "purchase") renderPurchaseList();
+            if (view === "purchase") renderPurchaseList();
             else if (view === "sales") renderSalesList();
             else if (view === "inventory") renderInventoryList();
             else if (view === "debt") renderDebtList();
@@ -4400,32 +6056,13 @@
             else app.innerHTML = `<h2>${label}</h2><p>Nội dung mô-đun <b>${view}</b> sẽ hiển thị ở đây.</p>`;
         }
         // ===== WebView2 Bridge =====
-        const isWebView = !!(window.chrome && window.chrome.webview);
 
-        function api(cmd, payload = {}) {
-            if (!isWebView) {
-                console.warn("Not running inside WebView2 — returning mock.");
-                return Promise.resolve([]);
-            }
-            window.chrome.webview.postMessage({ cmd, ...payload });
-            return new Promise(resolve => {
-                function handler(e) {
-                    try { resolve(JSON.parse(e.data)); }
-                    catch { resolve(e.data); }
-                    window.chrome.webview.removeEventListener('message', handler);
-                }
-                window.chrome.webview.addEventListener('message', handler);
-            });
-        }
 
         // Helpers
-        const fmtMoney = n => (n ?? 0).toLocaleString('vi-VN', { style: 'currency', currency: 'VND' });
-        const fmtDate = s => !s ? '' : new Date(s).toLocaleDateString('vi-VN');
         // Gắn sự kiện sidebar (giữ nguyên)
         document.querySelectorAll(".sidebar button[data-view]").forEach(btn => {
             btn.addEventListener("click", () => navigate(btn.dataset.view, btn.textContent));
         });
-        document.getElementById("btnLogout").addEventListener("click", () => alert("Đăng xuất thành công (demo)"));
 
         // Mặc định mở Dashboard
         navigate("dashboard", "🏠 Tổng quan");
@@ -4478,6 +6115,11 @@
                 throw err;
             }
         };
+        document.addEventListener("DOMContentLoaded", () => {
+            setSidebarEnabled(false);
+            renderLogin();
+            updateUserBox();
+        });
     </script>
 
 </body>

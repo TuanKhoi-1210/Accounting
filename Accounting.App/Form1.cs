@@ -10,6 +10,7 @@ using System;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+
 using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
@@ -32,7 +33,15 @@ namespace Accounting.App
 
         private AccountingDbContext _db = default!;
         private PurchaseService _service = default!;
+        private UserService _userService = default!;
+        private UserDto? _currentUser;
         private CatalogService _catalog = default!;
+        private ReportService _reportService = default!;
+        private CongNoService _congNoService;
+        private  DashboardService _dashboardService = default!;
+        private BankService _bankService = default!;
+        public DbSet<KiemKeQuy> KiemKeQuy { get; set; } = default!;
+        private CashService _cashService = default!;
         private DbContextOptions<AccountingDbContext> _dbOptions = default!;
         public Form1()
         {
@@ -46,7 +55,7 @@ namespace Accounting.App
             try
             {
                 var connStr =
-                    @"Server=localhost\SQLEXPRESS;Database=AccountingDB;Trusted_Connection=True;TrustServerCertificate=True";
+                    "Server=.\\SQLEXPRESS04;Database=AccountingDB;Trusted_Connection=True;TrustServerCertificate=True";
 
                 var options = new DbContextOptionsBuilder<AccountingDbContext>()
                     .UseSqlServer(connStr)
@@ -60,6 +69,7 @@ namespace Accounting.App
 
                 _db = new AccountingDbContext(_dbOptions);
                 await _db.Database.EnsureCreatedAsync();
+                _congNoService = new CongNoService(_db);
 
                 var canConnect = await _db.Database.CanConnectAsync();
                 int nccCount = 0;
@@ -73,9 +83,13 @@ namespace Accounting.App
                     MessageBoxButtons.OK,
                     canConnect ? MessageBoxIcon.Information : MessageBoxIcon.Error
                 );
-
+                _dashboardService = new DashboardService(_db);
+                _cashService = new CashService(_db);
+                _bankService = new BankService(_db);
                 _service = new PurchaseService(_db);
                 _catalog = new CatalogService(_db);
+                _reportService = new ReportService(_db);
+                _userService = new UserService(_db);
 
                 await EnsureWebViewAsync();
 
@@ -109,6 +123,7 @@ namespace Accounting.App
             }
             value = 0; return false;
         }
+
         private static bool TryGet(JsonElement obj, out JsonElement value, params string[] keys)
         {
             foreach (var k in keys)
@@ -172,7 +187,10 @@ namespace Accounting.App
             }
             return $"{prefix}{next:D3}";
         }
-
+        private void ReplyError(string message)
+        {
+            Reply(new { ok = false, error = message });
+        }
         // ===================== Bridge JS ↔ C# =====================
         private async void CoreWebView2_WebMessageReceived(object? sender, CoreWebView2WebMessageReceivedEventArgs e)
         {
@@ -184,11 +202,506 @@ namespace Accounting.App
 
                 switch (cmd)
                 {
+                    case "login":
+                        {
+                            string username = "";
+                            string password = "";
+
+                            if (msg.TryGetProperty("tenDangNhap", out var uEl) && uEl.ValueKind == JsonValueKind.String)
+                                username = uEl.GetString() ?? "";
+                            if (msg.TryGetProperty("matKhau", out var pEl) && pEl.ValueKind == JsonValueKind.String)
+                                password = pEl.GetString() ?? "";
+
+                            if (string.IsNullOrWhiteSpace(username) || string.IsNullOrWhiteSpace(password))
+                            {
+                                ReplyError("Dữ liệu đăng nhập không hợp lệ.");
+                                break;
+                            }
+
+                            var result = await _userService.LoginAsync(username, password);
+
+                            if (!result.Success || result.User == null)
+                            {
+                                ReplyError(result.Error ?? "Đăng nhập thất bại.");
+                                break;
+                            }
+
+                            _currentUser = result.User;
+
+                            // Trả về user cho JS hiển thị góc phải
+                            Reply(new
+                            {
+                                ok = true,
+                                user = result.User
+                            });
+
+                            break;
+                        }
+
+                    case "logout":
+                        {
+                            _currentUser = null;
+                            Reply(new { ok = true });
+                            break;
+                        }
+
+                    // ===== USERS CRUD =====
+                    case "user.list":
+                        {
+                            var users = await _userService.GetAllAsync();
+                            Reply(new
+                            {
+                                ok = true,
+                                items = users
+                            });
+                            break;
+                        }
+
+                    case "user.save":
+                        {
+                            // Dữ liệu đi thẳng trên msg: { cmd:"user.save", id, tenDangNhap, hoTen, vaiTro, dangHoatDong, matKhauMoi }
+                            var dto = new UserEditDto();
+
+                            if (msg.TryGetProperty("id", out var idEl) && idEl.ValueKind == JsonValueKind.Number)
+                                dto.Id = idEl.GetInt32();
+
+                            if (msg.TryGetProperty("tenDangNhap", out var userEl) && userEl.ValueKind == JsonValueKind.String)
+                                dto.TenDangNhap = userEl.GetString() ?? "";
+
+                            if (msg.TryGetProperty("hoTen", out var nameEl) && nameEl.ValueKind == JsonValueKind.String)
+                                dto.HoTen = nameEl.GetString() ?? "";
+
+                            if (msg.TryGetProperty("vaiTro", out var roleEl) && roleEl.ValueKind == JsonValueKind.String)
+                                dto.VaiTro = roleEl.GetString() ?? "";
+
+                            if (msg.TryGetProperty("dangHoatDong", out var activeEl) &&
+                                activeEl.ValueKind == JsonValueKind.True ||
+                                activeEl.ValueKind == JsonValueKind.False)
+                            {
+                                dto.DangHoatDong = activeEl.GetBoolean();
+                            }
+                            else
+                            {
+                                dto.DangHoatDong = true;
+                            }
+
+                            if (msg.TryGetProperty("matKhauMoi", out var passEl) && passEl.ValueKind == JsonValueKind.String)
+                                dto.MatKhauMoi = passEl.GetString();
+
+                            if (string.IsNullOrWhiteSpace(dto.TenDangNhap) || string.IsNullOrWhiteSpace(dto.HoTen))
+                            {
+                                ReplyError("Vui lòng nhập đầy đủ Tên đăng nhập và Họ tên.");
+                                break;
+                            }
+
+                            // Nếu thêm mới mà không có mật khẩu → báo lỗi
+                            if ((!dto.Id.HasValue || dto.Id.Value <= 0) &&
+                                string.IsNullOrWhiteSpace(dto.MatKhauMoi))
+                            {
+                                ReplyError("Vui lòng nhập mật khẩu cho người dùng mới.");
+                                break;
+                            }
+
+                            var saved = await _userService.SaveAsync(dto, _currentUser?.TenDangNhap);
+                            Reply(new
+                            {
+                                ok = true,
+                                user = saved
+                            });
+                            break;
+                        }
+
+                    case "user.delete":
+                        {
+                            if (!msg.TryGetProperty("id", out var idEl) || idEl.ValueKind != JsonValueKind.Number)
+                            {
+                                ReplyError("Id không hợp lệ.");
+                                break;
+                            }
+
+                            var id = idEl.GetInt32();
+                            if (id <= 0)
+                            {
+                                ReplyError("Id không hợp lệ.");
+                                break;
+                            }
+
+                            await _userService.DeleteAsync(id);
+                            Reply(new { ok = true });
+                            break;
+                        }
                     // ===== Danh sách đơn mua =====
                     case "list":
                     case "listDonMua":
                         {
                             var data = await _service.ListDonMuaAsync();
+                            Reply(data);
+                            break;
+                        }
+                    case "getCongNoKh":
+                        {
+                            bool chiConNo = msg.TryGetProperty("chiConNo", out var onlyEl) && onlyEl.GetBoolean();
+                            var data = await _congNoService.GetCongNoKhachHangAsync(chiConNo);
+                            Reply(data);    // hoặc webView.CoreWebView2.PostWebMessageAsString(JsonSerializer.Serialize(data));
+                            break;
+                        }
+                    case "getNhacNoKh":
+                        {
+                            var today = DateTime.Today;
+                            var data = await _congNoService.GetNhacNoKhachHangChiTietAsync(today);
+                            Reply(data);
+                            break;
+                        }
+                    // ===== BÁO CÁO: LỢI NHUẬN THEO KỲ =====
+                    case "report.getProfit":
+                        {
+                            DateTime tuNgay = DateTime.Today.AddMonths(-11); // default 12 tháng gần nhất
+                            DateTime denNgay = DateTime.Today;
+
+                            if (msg.TryGetProperty("tuNgay", out var tnEl) && tnEl.ValueKind == JsonValueKind.String)
+                                tuNgay = DateTime.Parse(tnEl.GetString()!);
+
+                            if (msg.TryGetProperty("denNgay", out var dnEl) && dnEl.ValueKind == JsonValueKind.String)
+                                denNgay = DateTime.Parse(dnEl.GetString()!);
+
+                            var list = await _reportService.GetLoiNhuanTheoThangAsync(tuNgay, denNgay);
+                            Reply(list);
+                            break;
+                        }
+
+                    case "getDashboardSummary":
+                        {
+                            var summary = await _dashboardService.GetSummaryAsync();
+
+                            var payload = new
+                            {
+                                cmd = "getDashboardSummary",
+                                ok = true,
+                                data = summary
+                            };
+
+                            var responseJson = JsonSerializer.Serialize(payload);
+                            webView.CoreWebView2.PostWebMessageAsJson(responseJson);
+                            break;
+                        }
+
+                    case "report.getArapSummary":
+                        {
+                            DateTime? tuNgay = null;
+                            DateTime? denNgay = null;
+
+                            if (msg.TryGetProperty("tuNgay", out var tnEl) && tnEl.ValueKind == JsonValueKind.String)
+                                tuNgay = DateTime.Parse(tnEl.GetString()!);
+
+                            if (msg.TryGetProperty("denNgay", out var dnEl) && dnEl.ValueKind == JsonValueKind.String)
+                                denNgay = DateTime.Parse(dnEl.GetString()!);
+
+                            var list = await _reportService.GetBaoCaoCongNoTongHopAsync(tuNgay, denNgay);
+                            Reply(list);
+                            break;
+                        }
+
+
+                    case "report.getInventory":
+                        {
+                            DateTime tuNgay = DateTime.Today.AddMonths(-1);
+                            DateTime denNgay = DateTime.Today;
+                            long? khoId = null;
+
+                            if (msg.TryGetProperty("tuNgay", out var tnEl) && tnEl.ValueKind == JsonValueKind.String)
+                                tuNgay = DateTime.Parse(tnEl.GetString()!);
+
+                            if (msg.TryGetProperty("denNgay", out var dnEl) && dnEl.ValueKind == JsonValueKind.String)
+                                denNgay = DateTime.Parse(dnEl.GetString()!);
+
+                            if (msg.TryGetProperty("khoId", out var khoEl))
+                            {
+                                if (khoEl.ValueKind == JsonValueKind.Number && khoEl.TryGetInt64(out var id))
+                                    khoId = id;
+                                else if (khoEl.ValueKind == JsonValueKind.String && long.TryParse(khoEl.GetString(), out var id2))
+                                    khoId = id2;
+                            }
+
+                            var list = await _reportService.GetBaoCaoTonKhoAsync(tuNgay, denNgay, khoId);
+                            Reply(list);
+                            break;
+                        }
+
+
+                    case "bank.listHoaDonBanNo":
+                        {
+                            var list = await _bankService.ListHoaDonBanConNoAsync();
+                            // DTO đã đúng shape JS cần (id, soCt, ngay, doiTuong, ...)
+                            Reply(list);
+                            break;
+                        }
+
+                    case "bank.listHoaDonMuaNo":
+                        {
+                            var list = await _bankService.ListHoaDonMuaConNoAsync();
+                            Reply(list);
+                            break;
+                        }
+
+
+                    case "cash.listSoQuy":
+                        {
+                            DateTime? tuNgay = null, denNgay = null;
+
+                            if (msg.TryGetProperty("tuNgay", out var tnEl) && tnEl.ValueKind == JsonValueKind.String)
+                                tuNgay = DateTime.Parse(tnEl.GetString()!);
+
+                            if (msg.TryGetProperty("denNgay", out var dnEl) && dnEl.ValueKind == JsonValueKind.String)
+                                denNgay = DateTime.Parse(dnEl.GetString()!);
+
+                            var list = await _cashService.GetSoQuyAsync(tuNgay, denNgay);
+                            Reply(list);
+                            break;
+                        }
+
+                    case "cash.listPhieuThu":
+                        {
+                            DateTime? tuNgay = null, denNgay = null;
+
+                            if (msg.TryGetProperty("tuNgay", out var tnEl) && tnEl.ValueKind == JsonValueKind.String)
+                                tuNgay = DateTime.Parse(tnEl.GetString()!);
+
+                            if (msg.TryGetProperty("denNgay", out var dnEl) && dnEl.ValueKind == JsonValueKind.String)
+                                denNgay = DateTime.Parse(dnEl.GetString()!);
+
+                            var list = await _cashService.ListPhieuThuAsync(tuNgay, denNgay);
+                            Reply(list);
+                            break;
+                        }
+
+                    case "cash.listPhieuChi":
+                        {
+                            DateTime? tuNgay = null, denNgay = null;
+
+                            if (msg.TryGetProperty("tuNgay", out var tnEl) && tnEl.ValueKind == JsonValueKind.String)
+                                tuNgay = DateTime.Parse(tnEl.GetString()!);
+
+                            if (msg.TryGetProperty("denNgay", out var dnEl) && dnEl.ValueKind == JsonValueKind.String)
+                                denNgay = DateTime.Parse(dnEl.GetString()!);
+
+                            var list = await _cashService.ListPhieuChiAsync(tuNgay, denNgay);
+                            Reply(list);
+                            break;
+                        }
+
+                    case "cash.savePhieuThu":
+                        {
+                            // JS gửi api("cash.savePhieuThu", dto)
+                            // wrapper sẽ merge thành { cmd: "...", ...dto }
+                            var dto = JsonSerializer.Deserialize<PhieuThuDto>(msg.GetRawText(), JsonInOptions)!;
+                            var entity = await _cashService.SavePhieuThuAsync(dto, "admin");
+                            Reply(new { entity.Id, entity.SoCt });
+                            break;
+                        }
+
+                    case "cash.savePhieuChi":
+                        {
+                            var dto = JsonSerializer.Deserialize<PhieuChiDto>(msg.GetRawText(), JsonInOptions)!;
+                            var entity = await _cashService.SavePhieuChiAsync(dto, "admin");
+                            Reply(new { entity.Id, entity.SoCt });
+                            break;
+                        }
+
+                    case "sales.listHoaDonBanChuaThu":
+                        {
+                            // Lấy danh sách hóa đơn bán còn công nợ (chưa thanh toán hết)
+                            var list = await _db.HoaDonBan
+                                .Where(h => !h.DaXoa && h.TrangThaiCongNo != "da_tt")
+                                .Select(h => new
+                                {
+                                    id = h.Id,
+                                    soHoaDon = h.SoHoaDon,
+                                    // tạm thời chưa join tên KH, để chuỗi rỗng / sau này bổ sung sau
+                                    tenKhachHang = "",
+                                    tongTien = h.TongTien,
+                                    daThanhToan = h.SoTienDaThanhToan,
+                                    conNo = h.TongTien - h.SoTienDaThanhToan
+                                })
+                                .OrderBy(x => x.soHoaDon)
+                                .ToListAsync();
+                            Console.WriteLine($"HoaDonBan chưa thu: {list.Count}");
+                            Reply(list);   // giống các case khác
+                            break;
+                        }
+
+
+
+                    case "cash.getSoDuQuy":
+                        {
+                            DateTime? denNgay = null;
+                            if (msg.TryGetProperty("denNgay", out var dnEl) && dnEl.ValueKind == JsonValueKind.String)
+                                denNgay = DateTime.Parse(dnEl.GetString()!);
+
+                            using var db = new AccountingDbContext(_dbOptions);
+                            var cashService = new CashService(db);
+                            var soDu = await cashService.GetSoDuQuyAsync(denNgay);
+
+                            Reply(new { soDu });
+                            break;
+                        }
+
+                    case "cash.saveKiemKeQuy":
+                        {
+                            using var db = new AccountingDbContext(_dbOptions);
+                            var cashService = new CashService(db);
+
+                            var dto = JsonSerializer.Deserialize<KiemKeQuyDto>(msg.GetRawText(), JsonInOptions)!;
+                            var entity = await cashService.SaveKiemKeQuyAsync(dto, "admin");
+                            Reply(new { entity.Id });
+                            break;
+                        }
+
+
+                    case "purchases.listHoaDonMuaChuaTra":
+                        {
+                            // Lấy danh sách hóa đơn MUA còn công nợ (chưa thanh toán đủ)
+                            var list = await _db.HoaDonMua
+                                .Where(h => h.TrangThaiCongNo != "da_tt")  // bỏ !h.DaXoa nếu chưa có
+                                .Select(h => new
+                                {
+                                    id = h.Id,
+                                    soHoaDon = h.SoCt,                      // hoặc SoHoaDon tùy DB bạn
+                                    tenNhaCungCap = "",                     // sau có thể join bảng NCC
+                                    tongTien = h.TongTien,
+                                    daThanhToan = h.SoTienDaThanhToan,
+                                    conNo = h.TongTien - h.SoTienDaThanhToan
+                                })
+                                .OrderBy(x => x.soHoaDon)
+                                .ToListAsync();
+
+                            Reply(list);
+                            break;
+                        }
+
+                    case "catalog.listBankAccounts":
+                        {
+                            var list = await _catalog.ListBankAccountsAsync();
+                            // Trả về đúng cấu trúc mà JS đang dùng: id, ma, tenNganHang, soTaiKhoan, tienTe
+                            var result = list.Select(x => new
+                            {
+                                id = x.Id,
+                                ma = x.Ma,
+                                tenNganHang = x.TenNganHang,
+                                soTaiKhoan = x.SoTaiKhoan,
+                                tienTe = x.TienTe
+                            });
+                            Reply(result);
+                            break;
+                        }
+
+
+                    case "bank.listSoKe":
+                        {
+                            long taiKhoanId = msg.GetProperty("taiKhoanId").GetInt64();
+                            DateTime? tuNgay = null, denNgay = null;
+
+                            if (msg.TryGetProperty("tuNgay", out var tnEl) && tnEl.ValueKind == JsonValueKind.String)
+                                tuNgay = DateTime.Parse(tnEl.GetString()!);
+
+                            if (msg.TryGetProperty("denNgay", out var dnEl) && dnEl.ValueKind == JsonValueKind.String)
+                                denNgay = DateTime.Parse(dnEl.GetString()!);
+
+                            var list = await _bankService.GetSoNganHangAsync(taiKhoanId, tuNgay, denNgay);
+                            Reply(list);
+                            break;
+                        }
+
+                    case "bank.listPhieuThu":
+                        {
+                            long? taiKhoanId = null;
+                            if (msg.TryGetProperty("taiKhoanId", out var tkEl) && tkEl.ValueKind == JsonValueKind.Number)
+                                taiKhoanId = tkEl.GetInt64();
+
+                            DateTime? tuNgay = null, denNgay = null;
+                            if (msg.TryGetProperty("tuNgay", out var tnEl) && tnEl.ValueKind == JsonValueKind.String)
+                                tuNgay = DateTime.Parse(tnEl.GetString()!);
+                            if (msg.TryGetProperty("denNgay", out var dnEl) && dnEl.ValueKind == JsonValueKind.String)
+                                denNgay = DateTime.Parse(dnEl.GetString()!);
+
+                            var list = await _bankService.ListPhieuThuAsync(taiKhoanId, tuNgay, denNgay);
+                            Reply(list);
+                            break;
+                        }
+
+                    case "bank.listPhieuChi":
+                        {
+                            long? taiKhoanId = null;
+                            if (msg.TryGetProperty("taiKhoanId", out var tkEl) && tkEl.ValueKind == JsonValueKind.Number)
+                                taiKhoanId = tkEl.GetInt64();
+
+                            DateTime? tuNgay = null, denNgay = null;
+                            if (msg.TryGetProperty("tuNgay", out var tnEl) && tnEl.ValueKind == JsonValueKind.String)
+                                tuNgay = DateTime.Parse(tnEl.GetString()!);
+                            if (msg.TryGetProperty("denNgay", out var dnEl) && dnEl.ValueKind == JsonValueKind.String)
+                                denNgay = DateTime.Parse(dnEl.GetString()!);
+
+                            var list = await _bankService.ListPhieuChiAsync(taiKhoanId, tuNgay, denNgay);
+                            Reply(list);
+                            break;
+                        }
+
+                    case "bank.savePhieuThu":
+                        {
+                            var dto = JsonSerializer.Deserialize<PhieuThuNganHangDto>(msg.GetRawText(), JsonInOptions)!;
+                            var entity = await _bankService.SavePhieuThuAsync(dto, "admin");
+                            Reply(new { entity.Id, entity.SoCt });
+                            break;
+                        }
+
+                    case "bank.savePhieuChi":
+                        {
+                            var dto = JsonSerializer.Deserialize<PhieuChiNganHangDto>(msg.GetRawText(), JsonInOptions)!;
+                            var entity = await _bankService.SavePhieuChiAsync(dto, "admin");
+                            Reply(new { entity.Id, entity.SoCt });
+                            break;
+                        }
+
+                    case "bank.getSoDuTaiKhoan":
+                        {
+                            long taiKhoanId = msg.GetProperty("taiKhoanId").GetInt64();
+                            DateTime? denNgay = null;
+                            if (msg.TryGetProperty("denNgay", out var dnEl) && dnEl.ValueKind == JsonValueKind.String)
+                                denNgay = DateTime.Parse(dnEl.GetString()!);
+
+                            var soDu = await _bankService.GetSoDuTaiKhoanAsync(taiKhoanId, denNgay);
+                            Reply(new { soDu });
+                            break;
+                        }
+
+
+                    case "getKhachHangDetail":
+                        {
+                            long id = msg.GetProperty("id").GetInt64();
+                            var info = await _congNoService.GetKhachHangDetailAsync(id);
+                            Reply(info);
+                            break;
+                        }
+
+                    case "getNccDetail":
+                        {
+                            long id = msg.GetProperty("id").GetInt64();
+                            var info = await _congNoService.GetNhaCungCapDetailAsync(id);
+                            Reply(info);
+                            break;
+                        }
+
+
+                    case "getCongNoNcc":
+                        {
+                            bool chiConNo = msg.TryGetProperty("chiConNo", out var onlyEl) && onlyEl.GetBoolean();
+                            var data = await _congNoService.GetCongNoNhaCungCapAsync(chiConNo);
+                            Reply(data);
+                            break;
+                        }
+                    case "getNhacNoNcc":
+                        {
+                            var today = DateTime.Today;
+                            var data = await _congNoService.GetNhacNoNhaCungCapChiTietAsync(today);
                             Reply(data);
                             break;
                         }
@@ -580,16 +1093,26 @@ namespace Accounting.App
                     // ====== KHO: tổng hợp dữ liệu kho (tồn = tổng Nhập; đọc nguong_ton qua raw SQL) ======
                     // ====== KHO: tổng hợp dữ liệu kho (tồn = tổng Nhập; đọc nguong_ton raw SQL) ======
                     case "getInventorySummary":
-                        {
+ {
                             try
                             {
                                 using var db = new AccountingDbContext(_dbOptions);
 
+                                // đọc tham số từ message
                                 string type = msg.TryGetProperty("type", out var pType) ? (pType.GetString() ?? "all") : "all";
                                 string q = msg.TryGetProperty("q", out var pQ) ? (pQ.GetString() ?? "") : "";
                                 var ql = (q ?? "").Trim().ToLowerInvariant();
 
-                                // 1) Load base list VatTu + DVT (không đụng IsThanhPham ở đây)
+                                bool hideZero = false;
+                                if (msg.TryGetProperty("hideZero", out var pHz))
+                                {
+                                    if (pHz.ValueKind == JsonValueKind.True) hideZero = true;
+                                    else if (pHz.ValueKind == JsonValueKind.False) hideZero = false;
+                                    else if (pHz.ValueKind == JsonValueKind.String && bool.TryParse(pHz.GetString(), out var hz))
+                                        hideZero = hz;
+                                }
+
+                                // 1) Load base list VatTu + DVT
                                 var baseList = await (
                                     from vt in db.VatTu.AsNoTracking()
                                     join dvt in db.DonViTinh.AsNoTracking() on vt.DonViTinhId equals dvt.Id into gj
@@ -604,23 +1127,26 @@ namespace Accounting.App
                                     }
                                 ).ToListAsync();
 
-                                // 2) Nếu CSDL có cột acc.vat_tu.is_thanh_pham thì đọc ra; nếu không coi tất cả là "vat_tu"
+                                // 2) Đọc is_thanh_pham nếu cột tồn tại
                                 var loaiMap = new Dictionary<long, bool>(); // true = thanh_pham
                                 {
                                     var conn = db.Database.GetDbConnection();
                                     var needClose = false;
-                                    if (conn.State != System.Data.ConnectionState.Open) { await conn.OpenAsync(); needClose = true; }
+                                    if (conn.State != System.Data.ConnectionState.Open)
+                                    {
+                                        await conn.OpenAsync();
+                                        needClose = true;
+                                    }
 
-                                    // kiểm tra tồn tại cột
                                     using (var chk = conn.CreateCommand())
                                     {
                                         chk.CommandText = "SELECT CASE WHEN COL_LENGTH('acc.vat_tu','is_thanh_pham') IS NULL THEN 0 ELSE 1 END";
                                         var hasCol = Convert.ToInt32(await chk.ExecuteScalarAsync()) == 1;
                                         if (hasCol)
                                         {
-                                            using var SQLcmd = conn.CreateCommand();
-                                            SQLcmd.CommandText = "SELECT id, CAST(is_thanh_pham AS INT) FROM acc.vat_tu";
-                                            using var r = await SQLcmd.ExecuteReaderAsync();
+                                            using var sqlCmd = conn.CreateCommand();
+                                            sqlCmd.CommandText = "SELECT id, CAST(is_thanh_pham AS INT) FROM acc.vat_tu";
+                                            using var r = await sqlCmd.ExecuteReaderAsync();
                                             while (await r.ReadAsync())
                                             {
                                                 var id = Convert.ToInt64(r.GetValue(0));
@@ -630,14 +1156,16 @@ namespace Accounting.App
                                         }
                                     }
 
-                                    if (needClose) await conn.CloseAsync();
+                                    if (needClose)
+                                        await conn.CloseAsync();
                                 }
 
                                 // áp bộ lọc q + type
                                 var master = baseList
-                                    .Where(x => string.IsNullOrEmpty(ql)
-                                                || (x.Ma ?? "").ToLowerInvariant().Contains(ql)
-                                                || (x.Ten ?? "").ToLowerInvariant().Contains(ql))
+                                    .Where(x =>
+                                        string.IsNullOrEmpty(ql) ||
+                                        (x.Ma ?? "").ToLowerInvariant().Contains(ql) ||
+                                        (x.Ten ?? "").ToLowerInvariant().Contains(ql))
                                     .Select(x => new
                                     {
                                         x.Id,
@@ -653,74 +1181,87 @@ namespace Accounting.App
                                 else if (type == "thanh_pham")
                                     master = master.Where(x => x.Loai == "thanh_pham").ToList();
 
-                                // 3) Lấy ngưỡng tồn từ DB (nếu có cột)
+                                // 3) Lấy ngưỡng tồn từ DB (acc.vat_tu.nguong_ton nếu có)
                                 var minDict = new Dictionary<long, decimal>();
                                 {
                                     var conn = db.Database.GetDbConnection();
                                     var needClose = false;
-                                    if (conn.State != System.Data.ConnectionState.Open) { await conn.OpenAsync(); needClose = true; }
+                                    if (conn.State != System.Data.ConnectionState.Open)
+                                    {
+                                        await conn.OpenAsync();
+                                        needClose = true;
+                                    }
 
-                                    using var SQLcmd = conn.CreateCommand();
-                                    SQLcmd.CommandText = @"
+                                    using var sqlCmd = conn.CreateCommand();
+                                    sqlCmd.CommandText = @"
 IF OBJECT_ID('acc.vat_tu','U') IS NOT NULL
     SELECT id, nguong_ton
     FROM acc.vat_tu;";
-                                    using var rdr = await SQLcmd.ExecuteReaderAsync();
+                                    using var rdr = await sqlCmd.ExecuteReaderAsync();
                                     while (await rdr.ReadAsync())
                                     {
                                         var id = Convert.ToInt64(rdr.GetValue(0));
-                                        var val = rdr.IsDBNull(1) ? 0m : Convert.ToDecimal(rdr.GetValue(1), CultureInfo.InvariantCulture);
+                                        var val = rdr.IsDBNull(1)
+                                            ? 0m
+                                            : Convert.ToDecimal(rdr.GetValue(1), CultureInfo.InvariantCulture);
                                         minDict[id] = val;
                                     }
 
-                                    if (needClose) await conn.CloseAsync();
+                                    if (needClose)
+                                        await conn.CloseAsync();
                                 }
 
-                                // 4) Hàm SQL động tính tồn PN − PX (có/không có cột da_xoa)
-                                const string TonSqlDyn = @"
-DECLARE @id BIGINT = @p;
-DECLARE @nhap DECIMAL(18,3)=0, @xuat DECIMAL(18,3)=0;
-
-IF OBJECT_ID('acc.phieu_nhap_dong','U') IS NOT NULL
-BEGIN
- IF COL_LENGTH('acc.phieu_nhap_dong','da_xoa') IS NOT NULL
-  EXEC sp_executesql N'SELECT @o=ISNULL(SUM(so_luong),0) FROM acc.phieu_nhap_dong WHERE vat_tu_id=@id AND ISNULL(da_xoa,0)=0',
-                     N'@id BIGINT,@o DECIMAL(18,3) OUTPUT', @id=@id, @o=@nhap OUTPUT;
- ELSE
-  EXEC sp_executesql N'SELECT @o=ISNULL(SUM(so_luong),0) FROM acc.phieu_nhap_dong WHERE vat_tu_id=@id',
-                     N'@id BIGINT,@o DECIMAL(18,3) OUTPUT', @id=@id, @o=@nhap OUTPUT;
-END
-
-IF OBJECT_ID('acc.phieu_xuat_dong','U') IS NOT NULL
-BEGIN
- IF COL_LENGTH('acc.phieu_xuat_dong','da_xoa') IS NOT NULL
-  EXEC sp_executesql N'SELECT @o=ISNULL(SUM(so_luong),0) FROM acc.phieu_xuat_dong WHERE vat_tu_id=@id AND ISNULL(da_xoa,0)=0',
-                     N'@id BIGINT,@o DECIMAL(18,3) OUTPUT', @id=@id, @o=@xuat OUTPUT;
- ELSE
-  EXEC sp_executesql N'SELECT @o=ISNULL(SUM(so_luong),0) FROM acc.phieu_xuat_dong WHERE vat_tu_id=@id',
-                     N'@id BIGINT,@o DECIMAL(18,3) OUTPUT', @id=@id, @o=@xuat OUTPUT;
-END
-
-SELECT @nhap-@xuat;";
-
-                                // 5) Tính tồn cho từng vật tư
-                                var items = new List<object>();
-                                {
-                                    var conn = db.Database.GetDbConnection();
-                                    var needClose = false;
-                                    if (conn.State != System.Data.ConnectionState.Open) { await conn.OpenAsync(); needClose = true; }
-
-                                    foreach (var m in master.OrderBy(x => x.Ten))
+                                // 4) Tính tồn (SL + GT) từ phiếu nhập / phiếu xuất
+                                var nhapDict = await db.PhieuNhapDong
+                                    .AsNoTracking()
+                                    .GroupBy(d => d.VatTuId)
+                                    .Select(g => new
                                     {
-                                        using var SQLcmd = conn.CreateCommand();
-                                        SQLcmd.CommandText = TonSqlDyn;
-                                        var p = SQLcmd.CreateParameter(); p.ParameterName = "@p"; p.Value = m.Id; SQLcmd.Parameters.Add(p);
-                                        var obj = await SQLcmd.ExecuteScalarAsync();
-                                        var ton = (obj == null || obj == DBNull.Value) ? 0m : Convert.ToDecimal(obj);
+                                        VatTuId = g.Key,
+                                        SlNhap = g.Sum(x => x.SoLuong),
+                                        GtNhap = g.Sum(x => x.GiaTri)
+                                    })
+                                    .ToDictionaryAsync(x => x.VatTuId);
+
+                                var xuatDict = await db.PhieuXuatDong
+                                    .AsNoTracking()
+                                    .GroupBy(d => d.VatTuId)
+                                    .Select(g => new
+                                    {
+                                        VatTuId = g.Key,
+                                        SlXuat = g.Sum(x => x.SoLuong),
+                                        GtXuat = g.Sum(x => x.GiaTri)
+                                    })
+                                    .ToDictionaryAsync(x => x.VatTuId);
+
+                                // 5) Build items trả ra UI
+                                var items = master
+                                    .OrderBy(x => x.Ten)
+                                    .Select(m =>
+                                    {
+                                        nhapDict.TryGetValue(m.Id, out var n);
+                                        xuatDict.TryGetValue(m.Id, out var x);
+
+                                        var slNhap = n?.SlNhap ?? 0m;
+                                        var slXuat = x?.SlXuat ?? 0m;
+                                        var gtNhap = n?.GtNhap ?? 0m;
+                                        var gtXuat = x?.GtXuat ?? 0m;
+
+                                        var ton = slNhap - slXuat;
+                                        var giaTriTon = gtNhap - gtXuat;
+
+                                        var isTp = (m.Loai == "thanh_pham");
+
+                                        // Nếu là thành phẩm mà tồn <= 0 & GT âm, ép về 0 và lấy trị tuyệt đối GT
+                                        if (isTp && ton <= 0 && giaTriTon < 0)
+                                        {
+                                            ton = 0;
+                                            giaTriTon = Math.Abs(giaTriTon);
+                                        }
 
                                         minDict.TryGetValue(m.Id, out var minTon);
 
-                                        items.Add(new
+                                        return new
                                         {
                                             id = m.Id,
                                             ma = m.Ma,
@@ -728,14 +1269,13 @@ SELECT @nhap-@xuat;";
                                             dvtTen = m.DvtTen,
                                             ton,
                                             minTon,
-                                            giaTriTon = 0m,
+                                            giaTriTon,
                                             loai = m.Loai,
-                                            isThanhPham = (m.Loai == "thanh_pham")
-                                        });
-                                    }
-
-                                    if (needClose) await conn.CloseAsync();
-                                }
+                                            isThanhPham = isTp
+                                        };
+                                    })
+                                    .Where(it => !hideZero || it.ton != 0 || it.giaTriTon != 0)  // backend filter hideZero
+                                    .ToList();
 
                                 Reply(new { items });
                             }
@@ -745,6 +1285,7 @@ SELECT @nhap-@xuat;";
                             }
                             break;
                         }
+
 
 
 

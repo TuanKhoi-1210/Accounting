@@ -1,16 +1,20 @@
 ﻿namespace Accounting.Domain.Entities;
 
+
 public class HoaDonBan
 {
     public long Id { get; set; }
     public string SoHoaDon { get; set; } = "";
     public DateTime NgayHoaDon { get; set; } = DateTime.UtcNow;
 
-    public long DonBanId { get; set; }
-
     public decimal TienHang { get; set; }
     public decimal TienThue { get; set; }
     public decimal TongTien { get; set; }
+
+    public decimal SoTienDaThanhToan { get; set; } = 0m;
+    public string TrangThaiCongNo { get; set; } = "chua_tt";
+
+    public long DonBanId { get; set; }
 
     public string TrangThai { get; set; } = "draft"; // draft|issued|canceled|paid
 
@@ -21,6 +25,9 @@ public class HoaDonBan
     public bool DaXoa { get; set; }
 
     public List<HoaDonBanDong> Dongs { get; set; } = new();
+
+    // (tuỳ chọn) điều hướng ngược tới phiếu thu
+    public List<PhieuThu> PhieuThus { get; set; } = new();
 }
 
 public class HoaDonBanDong

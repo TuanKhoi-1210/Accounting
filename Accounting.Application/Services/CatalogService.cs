@@ -46,6 +46,12 @@ namespace Accounting.Application.Services
             await _db.SaveChangesAsync();
             return vt;
         }
+        public async Task<List<TaiKhoanNganHang>> ListBankAccountsAsync()
+        {
+            return await _db.TaiKhoanNganHang
+                .OrderBy(x => x.Ma)
+                .ToListAsync();
+        }
 
         /// <summary>
         /// Lấy hoặc tạo Đơn vị tính theo tên (so khớp không phân biệt hoa thường).
